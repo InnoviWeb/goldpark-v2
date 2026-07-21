@@ -640,19 +640,22 @@ async function loadAllData(role, cid) {
   const cids = (role === 'kunde' && cid) ? [cid] : state.companies.map(c => c.id);
 
   await Promise.all(cids.map(async cidItem => {
-    const [vRes, invRes, calRes, tripRes, insRes, blkRes] = await Promise.all([
+    const [vRes, invRes, calRes, tripRes, insRes, blkRes, angRes] = await Promise.all([
       api(`/api/vehicles?company_id=${cidItem}`),
       api(`/api/invoices?company_id=${cidItem}`),
       api(`/api/calendar?company_id=${cidItem}`),
       api(`/api/trips?company_id=${cidItem}`),
       api(`/api/insurance?company_id=${cidItem}`),
       api(`/api/blocked-slots?company_id=${cidItem}`),
+      api(`/api/angebote?company_id=${cidItem}`),
     ]);
     if (vRes && vRes.ok) {
       const vehs = await vRes.json();
       await Promise.all(vehs.map(async v => {
         const dRes = await api(`/api/damages?vehicle_id=${v.id}`);
         v.damages = (dRes && dRes.ok) ? await dRes.json() : [];
+        const lRes = await api(`/api/leasing?vehicle_id=${v.id}`);
+        if (lRes && lRes.ok) { const ld = await lRes.json(); state.leasings.push(...ld); }
       }));
       state.vehicles.push(...vehs);
     }
@@ -661,11 +664,10 @@ async function loadAllData(role, cid) {
     if (tripRes && tripRes.ok) { const d = await tripRes.json(); state.trips.push(...d); }
     if (insRes && insRes.ok) { const d = await insRes.json(); state.insurances.push(...d); }
     if (blkRes && blkRes.ok) { const d = await blkRes.json(); state.blockedSlots.push(...d); }
+    if (angRes && angRes.ok) { const d = await angRes.json(); state.angebote.push(...d.map(r=>({...(r.data||{}),id:r.id,cid:r.company_id}))); }
   }));
 }
 
-function saveCalendar(){}
-function saveBlockedSlots(){}
 function terminSlots(){return['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'];}
 function isDayBlocked(cid,datum){return state.blockedSlots.some(b=>b.cid===cid&&b.datum===datum&&b.uhrzeit==='ganztags');}
 function isSlotBlocked(cid,datum,uhrzeit){return isDayBlocked(cid,datum)||state.blockedSlots.some(b=>b.cid===cid&&b.datum===datum&&b.uhrzeit===uhrzeit);}
@@ -1347,7 +1349,7 @@ function renderMain(){
           ${driverLicenseHTML(company.id,_dlClick)}
         </div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;flex:1;min-height:0">
-          <div class="fleet-tile" style="box-shadow:0 1px 3px rgba(0,0,0,.05);position:relative" onclick="openChatModal('${company.id}')">
+          <div class="fleet-tile" style="box-shadow:0 1px 3px rgba(0,0,0,.05);position:relative;display:none" onclick="openChatModal('${company.id}')">
             ${_chatBadge}
             <svg width="32" height="32" viewBox="0 0 24 24" fill="#1A1A1A" xmlns="http://www.w3.org/2000/svg"><path d="M20,2H4A2,2 0 0,0 2,4V22L6,18H20A2,2 0 0,0 22,16V4A2,2 0 0,0 20,2M8,11A1,1 0 0,1 7,10A1,1 0 0,1 8,9A1,1 0 0,1 9,10A1,1 0 0,1 8,11M12,11A1,1 0 0,1 11,10A1,1 0 0,1 12,9A1,1 0 0,1 13,10A1,1 0 0,1 12,11M16,11A1,1 0 0,1 15,10A1,1 0 0,1 16,9A1,1 0 0,1 17,10A1,1 0 0,1 16,11Z"/></svg>
             <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
@@ -1782,8 +1784,6 @@ async function cancelInvoice(invId,cid){
   reloadInvoicesSection(cid);
 }
 
-function saveInvoices(){}
-
 function reloadInvoicesSection(cid){
   const company=state.companies.find(c=>c.id===cid);
   if(!company)return;
@@ -1862,8 +1862,6 @@ async function saveNewInvoice(cid){
 }
 
 /* ===================== ANGEBOTE ===================== */
-function saveAngebote(){}
-
 function angebotStatusInfo(st){
   if(st==='green')return{label:'Freigegeben',cls:'cal-s-green',dot:'🟢',color:'var(--green)',bg:'var(--green-bg)',border:'#C3DCC3'};
   if(st==='yellow')return{label:'Ausstehend',cls:'cal-s-yellow',dot:'🟡',color:'var(--amber)',bg:'var(--amber-bg)',border:'#E8DFC0'};
@@ -2022,6 +2020,8 @@ async function setAngebotStatus(id,cid,status){
     await convertAngebotToInvoice(a);
     a.umgewandelt=true;
   }
+  const {id:_id,cid:_cid,...data}=a;
+  await api('/api/angebote/'+id,{method:'PUT',body:JSON.stringify({data})});
   reloadAngeboteSection(cid);
 }
 
@@ -2031,28 +2031,30 @@ async function convertAngebotToInvoice(a){
   if(res&&res.ok){const saved=await res.json();state.invoices.push(saved);}
 }
 
-function saveAdminNachricht(id,cid){
+async function saveAdminNachricht(id,cid){
   const a=state.angebote.find(x=>x.id===id);
   if(!a)return;
   const el=document.getElementById('an-'+id);
   if(el)a.adminNachricht=el.value.trim();
-  saveAngebote();
+  const {id:_id,cid:_cid,...data}=a;
+  await api('/api/angebote/'+id,{method:'PUT',body:JSON.stringify({data})});
   reloadAngeboteSection(cid);
 }
 
-function saveKundenNachricht(id,cid){
+async function saveKundenNachricht(id,cid){
   const a=state.angebote.find(x=>x.id===id);
   if(!a)return;
   const el=document.getElementById('kn-'+id);
   if(el)a.kundenNachricht=el.value.trim();
-  saveAngebote();
+  const {id:_id,cid:_cid,...data}=a;
+  await api('/api/angebote/'+id,{method:'PUT',body:JSON.stringify({data})});
   reloadAngeboteSection(cid);
 }
 
-function deleteAngebot(id,cid){
+async function deleteAngebot(id,cid){
   if(!confirm('Angebot wirklich löschen?\nDiese Aktion kann nicht rückgängig gemacht werden.'))return;
-  state.angebote=state.angebote.filter(a=>a.id!==id);
-  saveAngebote();
+  const res=await api('/api/angebote/'+id,{method:'DELETE'});
+  if(res&&res.ok){state.angebote=state.angebote.filter(a=>a.id!==id);}
   reloadAngeboteSection(cid);
 }
 
@@ -2082,7 +2084,7 @@ function openAddAngebotModal(cid,editId){
   document.getElementById('modal-container').innerHTML=`<div class="modal-overlay" onclick="if(event.target===this)closeModal()">${html}</div>`;
 }
 
-function saveNewAngebot(cid,editId){
+async function saveNewAngebot(cid,editId){
   const vid=(document.getElementById('na-vid')||{}).value||'';
   const kat=(document.getElementById('na-kat')||{}).value||'';
   const desc=((document.getElementById('na-desc')||{}).value||'').trim();
@@ -2098,11 +2100,18 @@ function saveNewAngebot(cid,editId){
   const plate=v?v.plate:'—';
   if(editId){
     const a=state.angebote.find(x=>x.id===editId);
-    if(a){a.vehicleId=vid;a.plate=plate;a.kategorie=kat;a.beschreibung=desc;a.datum=date;a.betrag=betrag;}
+    if(a){
+      a.vehicleId=vid;a.plate=plate;a.kategorie=kat;a.beschreibung=desc;a.datum=date;a.betrag=betrag;
+      const {id:_id,cid:_cid,...data}=a;
+      const res=await api('/api/angebote/'+editId,{method:'PUT',body:JSON.stringify({data})});
+      if(!res||!res.ok){if(errEl)errEl.textContent='Fehler beim Speichern.';return;}
+    }
   }else{
-    state.angebote.push({id:'ang'+Date.now(),cid,vehicleId:vid,plate,kategorie:kat,beschreibung:desc,betrag,datum:date,adminNachricht:'',kundenStatus:null,kundenNachricht:'',umgewandelt:false,terminDatum:'',terminUhrzeit:'',terminNachricht:''});
+    const newData={vehicleId:vid,plate,kategorie:kat,beschreibung:desc,betrag,datum:date,adminNachricht:'',kundenStatus:null,kundenNachricht:'',umgewandelt:false,terminDatum:'',terminUhrzeit:'',terminNachricht:''};
+    const res=await api('/api/angebote',{method:'POST',body:JSON.stringify({company_id:cid,data:newData})});
+    if(res&&res.ok){const saved=await res.json();state.angebote.push({...(saved.data||{}),id:saved.id,cid:saved.company_id});}
+    else{if(errEl)errEl.textContent='Fehler beim Speichern.';return;}
   }
-  saveAngebote();
   closeModal();
   reloadAngeboteSection(cid);
 }
@@ -2760,7 +2769,7 @@ function renderTerminModal(){
   </div>`;
   document.getElementById('modal-container').innerHTML=`<div class="modal-overlay" onclick="if(event.target===this)closeModal()">${html}</div>`;
 }
-function saveAngebotTermin(){
+async function saveAngebotTermin(){
   terminCaptureInputs();
   const st=terminModalState;
   const a=state.angebote.find(x=>x.id===st.angId);if(!a)return;
@@ -2773,7 +2782,8 @@ function saveAngebotTermin(){
   a.terminDatum=st.selDate;
   a.terminUhrzeit=st.selTime;
   a.terminNachricht=(st.msg||'').trim();
-  saveAngebote();
+  const {id:_id,cid:_cid,...data}=a;
+  await api('/api/angebote/'+a.id,{method:'PUT',body:JSON.stringify({data})});
   closeModal();
   reloadAngeboteSection(st.cid);
 }
@@ -3183,7 +3193,7 @@ function renderVehicleDetail(){
   if(!panel||!state.selectedVehicle)return;
   const v=state.vehicles.find(x=>x.id===state.selectedVehicle);
   if(!v){panel.innerHTML='';return;}
-  const tabs=[{id:'reminders',label:'Erinnerungen',icon:'ti-bell'},{id:'damages',label:'Schäden',icon:'ti-tools'},{id:'info',label:'Fahrzeuginfo',icon:'ti-info-circle'},{id:'dokumente',label:'Dokumente',icon:'ti-files'}];
+  const tabs=[{id:'reminders',label:'Erinnerungen',icon:'ti-bell'},{id:'damages',label:'Schäden',icon:'ti-tools'},{id:'info',label:'Fahrzeuginfo',icon:'ti-info-circle'}];
   const tabsHtml=tabs.map(t=>`<div class="dtab${state.activeTab===t.id?' active':''}" onclick="selectTab('${t.id}')"><i class="ti ${t.icon}" style="font-size:12px;margin-right:3px" aria-hidden="true"></i>${t.label}</div>`).join('');
   let content='';
   if(state.activeTab==='reminders'){
@@ -3271,6 +3281,9 @@ function openModal(type,id=''){
       <div class="form-group"><label class="form-label">Firmenname *</label><input class="form-input" id="f-name" placeholder="Mustermann GmbH"></div>
       <div class="form-group"><label class="form-label">Ansprechpartner</label><input class="form-input" id="f-contact"></div>
       <div class="form-row"><div class="form-group"><label class="form-label">Telefon</label><input class="form-input" id="f-phone"></div><div class="form-group"><label class="form-label">E-Mail</label><input class="form-input" id="f-email"></div></div>
+      <div style="font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin:12px 0 7px">Kundenzugang — optional</div>
+      <div class="form-row"><div class="form-group"><label class="form-label">Login-E-Mail</label><input class="form-input" id="f-login-email" type="email" placeholder="kunde@firma.de"></div><div class="form-group"><label class="form-label">Passwort (min. 8 Zeichen)</label><input class="form-input" id="f-login-pass" type="password" placeholder="••••••••"></div></div>
+      <div id="f-err" style="font-size:11px;color:var(--red);min-height:16px;margin-bottom:2px"></div>
       <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" onclick="saveCompany()"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button></div></div>`;
   } else if(type==='editCompany'){
     const c=state.companies.find(x=>x.id===id);
@@ -3564,13 +3577,28 @@ async function saveCompany(existingId=''){
   const contact=document.getElementById('f-contact').value.trim();
   const phone=document.getElementById('f-phone').value.trim();
   const email=document.getElementById('f-email').value.trim();
+  const errEl=document.getElementById('f-err');
   if(existingId){
     const c=state.companies.find(x=>x.id===existingId);
     const res=await api('/api/companies/'+existingId,{method:'PUT',body:JSON.stringify({...c,name,contact,phone,email})});
     if(res&&res.ok){c.name=name;c.contact=contact;c.phone=phone;c.email=email;}
   }else{
-    const res=await api('/api/companies',{method:'POST',body:JSON.stringify({name,contact,phone,email})});
+    const loginEmail=(document.getElementById('f-login-email')||{value:''}).value.trim();
+    const loginPass=(document.getElementById('f-login-pass')||{value:''}).value;
+    if((loginEmail||loginPass)&&(!loginEmail||!loginPass)){
+      if(errEl)errEl.textContent='Bitte Login-E-Mail und Passwort zusammen ausfüllen.';
+      return;
+    }
+    if(loginPass&&loginPass.length<8){
+      if(errEl)errEl.textContent='Passwort muss mindestens 8 Zeichen haben.';
+      return;
+    }
+    const body={name,contact,phone,email};
+    if(loginEmail&&loginPass){body.login_email=loginEmail;body.login_password=loginPass;}
+    const res=await api('/api/companies',{method:'POST',body:JSON.stringify(body)});
     if(res&&res.ok){const saved=await res.json();state.companies.push(saved);}
+    else if(res&&res.status===409){if(errEl)errEl.textContent='Diese E-Mail-Adresse wird bereits verwendet.';return;}
+    else{if(errEl)errEl.textContent='Fehler beim Speichern.';return;}
   }
   closeModal();renderSidebar();if(state.selectedCompany)renderMain();
 }
@@ -4017,7 +4045,6 @@ function ldResetSelection() {
 }
 
 // ===== FAHRTENBUCH =====
-function saveTrips(){}
 function _tripDateFmt(ds){return ds?ds.split('-').reverse().join('.'):'—';}
 function _tripDriverName(t){
   const dr=state.drivers.find(d=>d.id===t.driverId);
