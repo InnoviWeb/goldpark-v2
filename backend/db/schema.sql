@@ -3,21 +3,21 @@
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
-CREATE TABLE IF NOT EXISTS users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  email TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('admin','kunde')),
-  company_id UUID,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
 CREATE TABLE IF NOT EXISTS companies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   contact TEXT,
   phone TEXT,
   email TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('admin','kunde')),
+  company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -127,8 +127,3 @@ CREATE TABLE IF NOT EXISTS blocked_slots (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Foreign key für users.company_id (nachträglich, da companies erst danach definiert)
-ALTER TABLE users
-  ADD CONSTRAINT fk_users_company
-  FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL
-  NOT VALID;
