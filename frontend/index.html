@@ -419,13 +419,13 @@ select.form-input option{background:#FFF;color:#1A1A1A}
 @keyframes ldPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.75)}}
 .ld-pulse-dot{animation:ldPulse 1.4s ease-in-out infinite}
 </style>
-<script>const API_BASE = "https://goldpark-portal-production.up.railway.app";</script>
+<script>const API_BASE = "https://goldpark-v2-production.up.railway.app";</script>
 </head>
 <body>
 
 <!-- ===== LOGIN PAGE ===== -->
 <div id="login-page">
-  <img src="Logo_1-removebg-preview.png" class="login-logo" alt="Goldpark Management">
+  <img src="logo.png" class="login-logo" alt="Goldpark Management">
   <div style="font-size:15px;font-weight:600;color:#C9A84C;letter-spacing:0.18em;text-transform:uppercase;margin-bottom:8px;text-align:center">GOLDPARK MANAGEMENT</div>
   <div class="login-slogan">WIR BEWEGEN IHREN FUHRPARK. SIE IHR BUSINESS.</div>
 
@@ -463,7 +463,7 @@ select.form-input option{background:#FFF;color:#1A1A1A}
 <div class="app" id="app">
   <div class="sidebar">
     <div class="brand">
-      <img src="Logo_1-removebg-preview.png" class="brand-logo-img" alt="Goldpark Management">
+      <img src="logo.png" class="brand-logo-img" alt="Goldpark Management">
       <div class="brand-sub-text">Fuhrparkmanagement</div>
     </div>
     <div class="sidebar-header" id="sidebar-admin-header">
@@ -482,7 +482,7 @@ select.form-input option{background:#FFF;color:#1A1A1A}
   <div class="right-panel">
   <div class="main" id="main-content">
     <div class="welcome">
-      <img src="Logo_1-removebg-preview.png" class="welcome-logo-img" alt="Goldpark">
+      <img src="logo.png" class="welcome-logo-img" alt="Goldpark">
       <div class="welcome-brand">Goldpark Management</div>
       <div class="welcome-title">Fuhrparkmanagement</div>
       <div class="divider-gold"></div>
@@ -520,7 +520,7 @@ const ADMIN_PASS  = 'Goldpark2024!';
 let currentRole = null;
 let currentCustomerCid = null;
 
-async async function loginAdmin() {
+async function loginAdmin() {
   const email = document.getElementById('a-email').value.trim();
   const pass = document.getElementById('a-pass').value;
   try {
@@ -1281,7 +1281,7 @@ function renderMain(){
   if(isAdmin()) renderAdminAlertBars();
   if(!state.selectedCompany){
     const subText = isAdmin() ? 'Firma auswählen oder neu anlegen.' : 'Bitte wählen Sie Ihren Fuhrpark aus.';
-    main.innerHTML=`<div class="welcome"><img src="Logo_1-removebg-preview.png" class="welcome-logo-img" alt="Goldpark"><div class="welcome-brand">Goldpark Management</div><div class="welcome-title">Fuhrparkmanagement</div><div class="divider-gold"></div><div class="welcome-sub">${subText}</div></div>`;
+    main.innerHTML=`<div class="welcome"><img src="logo.png" class="welcome-logo-img" alt="Goldpark"><div class="welcome-brand">Goldpark Management</div><div class="welcome-title">Fuhrparkmanagement</div><div class="divider-gold"></div><div class="welcome-sub">${subText}</div></div>`;
     return;
   }
   const company=state.companies.find(c=>c.id===state.selectedCompany);
@@ -1682,9 +1682,7 @@ function printInvoice(invId){
     +'<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/tabler-icons.min.css">'
     +'<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">'
     +'<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:\'Inter\',system-ui,sans-serif;background:#FFF;color:#1A1A1A;padding:52px 64px;max-width:800px;margin:0 auto}@media print{@page{size:A4;margin:20mm}body{padding:0}}</style>'
-    +'<script>const API_BASE = "https://goldpark-portal-production.up.railway.app";</script>
-<script>const API_BASE = "https://goldpark-portal-production.up.railway.app";</script>
-</head><body>'+body+'</body></html>');
+    +'</head><body>'+body+'</body></html>');
   w.document.close();
   setTimeout(()=>w.print(),600);
 }
@@ -2219,9 +2217,7 @@ function printAngebot(angId){
     +'<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/tabler-icons.min.css">'
     +'<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">'
     +'<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:\'Inter\',system-ui,sans-serif;background:#FFF;color:#1A1A1A;padding:52px 64px;max-width:800px;margin:0 auto}@media print{@page{size:A4;margin:20mm}body{padding:0}}</style>'
-    +'<script>const API_BASE = "https://goldpark-portal-production.up.railway.app";</script>
-<script>const API_BASE = "https://goldpark-portal-production.up.railway.app";</script>
-</head><body>'+body+'</body></html>');
+    +'</head><body>'+body+'</body></html>');
   w.document.close();
   setTimeout(()=>w.print(),600);
 }
