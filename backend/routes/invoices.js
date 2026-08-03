@@ -40,6 +40,26 @@ router.post('/', requireAuth, enforceCompanyAccess, async (req, res) => {
   }
 });
 
+// PUT /api/invoices/:id — update data (e.g. status toggle)
+router.put('/:id', requireAuth, async (req, res) => {
+  const { data } = req.body;
+  try {
+    const existing = await db.query('SELECT company_id FROM invoices WHERE id = $1', [req.params.id]);
+    if (!existing.rows.length) return res.status(404).json({ error: 'Nicht gefunden' });
+    if (req.user.role === 'kunde' && existing.rows[0].company_id !== req.user.company_id) {
+      return res.status(403).json({ error: 'Zugriff verweigert' });
+    }
+    const result = await db.query(
+      'UPDATE invoices SET data = $1 WHERE id = $2 RETURNING *',
+      [JSON.stringify(data || {}), req.params.id]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Datenbankfehler' });
+  }
+});
+
 // DELETE /api/invoices/:id
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
