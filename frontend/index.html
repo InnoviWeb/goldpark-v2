@@ -627,21 +627,16 @@ async function logout() {
 }
 
 async function checkSession() {
-  const { data } = await sbClient.auth.getSession();
-  if (data.session) {
-    const role = data.session.user.user_metadata?.role || 'kunde';
-    const cid = data.session.user.user_metadata?.company_id || null;
-    await initSession(role, cid);
-    return;
-  }
-  const role = localStorage.getItem('gp_role');
-  const token = localStorage.getItem('gp_token');
-  if (!token || !role) return;
-  if (role === 'admin') {
-    await initSession('admin', null);
-  } else if (role === 'kunde') {
-    const cid = localStorage.getItem('gp_cid') || null;
-    if (cid) await initSession('kunde', cid);
+  try {
+    const { data, error } = await sbClient.auth.getSession();
+    if (error) return;
+    if (data.session) {
+      const role = data.session.user.user_metadata?.role || 'kunde';
+      const cid = data.session.user.user_metadata?.company_id || null;
+      await initSession(role, cid);
+    }
+  } catch(e) {
+    // keine aktive Session, Login-Maske bleibt
   }
 }
 
