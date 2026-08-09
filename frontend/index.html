@@ -452,7 +452,7 @@ select.form-input option{background:#FFF;color:#1A1A1A}
 const API_BASE = 'https://goldpark-v2-production.up.railway.app';
 const SUPABASE_URL = 'https://xxwvppftmevchodvlsdt.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_m5nSPvO-5tqY9dqBp-NczQ_NAdsak8f';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 </script>
 </head>
 <body>
@@ -536,7 +536,7 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 <script>
 // ===== API HELPER =====
 async function api(path, opts = {}) {
-  const { data: sd } = await supabase.auth.getSession();
+  const { data: sd } = await sbClient.auth.getSession();
   const token = sd.session?.access_token || localStorage.getItem('gp_token') || '';
   const res = await fetch(API_BASE + path, {
     ...opts,
@@ -560,7 +560,7 @@ async function loginAdmin() {
   const email = document.getElementById('a-email').value.trim();
   const pass = document.getElementById('a-pass').value;
   const err = document.getElementById('a-error');
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+  const { data, error } = await sbClient.auth.signInWithPassword({ email, password: pass });
   if (error) { err.textContent = 'E-Mail oder Passwort falsch.'; err.style.display='block'; return; }
   err.style.display='none';
   const role = data.user.user_metadata?.role || 'admin';
@@ -572,7 +572,7 @@ async function loginKunde() {
   const email = document.getElementById('k-email').value.trim();
   const pass = document.getElementById('k-pass').value;
   const err = document.getElementById('k-error');
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+  const { data, error } = await sbClient.auth.signInWithPassword({ email, password: pass });
   if (error) { err.textContent = 'E-Mail oder Passwort falsch.'; err.style.display='block'; return; }
   err.style.display='none';
   const role = data.user.user_metadata?.role || 'kunde';
@@ -606,7 +606,7 @@ function startSession(role, cid) {
 }
 
 async function logout() {
-  await supabase.auth.signOut();
+  await sbClient.auth.signOut();
   localStorage.removeItem('gp_token');
   localStorage.removeItem('gp_role');
   localStorage.removeItem('gp_cid');
@@ -627,7 +627,7 @@ async function logout() {
 }
 
 async function checkSession() {
-  const { data } = await supabase.auth.getSession();
+  const { data } = await sbClient.auth.getSession();
   if (data.session) {
     const role = data.session.user.user_metadata?.role || 'kunde';
     const cid = data.session.user.user_metadata?.company_id || null;
