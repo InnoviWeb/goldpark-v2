@@ -418,33 +418,6 @@ select.form-input option{background:#FFF;color:#1A1A1A}
 .fleet-modal-body{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:14px}
 @keyframes ldPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.75)}}
 .ld-pulse-dot{animation:ldPulse 1.4s ease-in-out infinite}
-
-/* ===== MOBILE ===== */
-.hamburger-btn{display:none;position:fixed;top:10px;left:10px;z-index:800;width:40px;height:40px;background:#2C2C2C;border:1px solid #555;border-radius:8px;cursor:pointer;align-items:center;justify-content:center;color:#FFF;font-size:18px}
-.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:700}
-@media (max-width:768px){
-  .hamburger-btn{display:flex}
-  .sidebar-overlay.open{display:block}
-  .app{flex-direction:column}
-  .sidebar{
-    position:fixed;top:0;left:0;bottom:0;width:280px;z-index:750;
-    transform:translateX(-100%);transition:transform .25s ease
-  }
-  .sidebar.open{transform:translateX(0)}
-  .right-panel{margin-left:0!important;width:100%}
-  .main{padding:56px 10px 10px}
-  .vehicle-grid{grid-template-columns:1fr!important}
-  .stats-row{grid-template-columns:1fr 1fr!important}
-  .data-table-wrap{overflow-x:auto}
-  .modal{width:100vw!important;max-width:100vw!important;border-radius:12px 12px 0 0;position:fixed;bottom:0;left:0;margin:0}
-  .modal-overlay{align-items:flex-end}
-  .btn{min-height:44px}
-  .form-row{grid-template-columns:1fr!important}
-  [style*="grid-template-columns:70fr 30fr"]{display:flex!important;flex-direction:column!important}
-  [style*="grid-template-columns:repeat(4,1fr)"]{grid-template-columns:1fr 1fr!important}
-  [style*="grid-template-columns:repeat(3,1fr)"]{grid-template-columns:1fr 1fr!important}
-  [style*="display:flex;gap:12px;margin-bottom:14px"]{flex-direction:column!important}
-}
 </style>
 <script>const API_BASE = "https://goldpark-v2-production.up.railway.app";</script>
 </head>
@@ -487,10 +460,8 @@ select.form-input option{background:#FFF;color:#1A1A1A}
 
 <!-- ===== APP PAGE ===== -->
 <div id="app-page">
-<button class="hamburger-btn" onclick="toggleSidebar()" aria-label="Menü"><i class="ti ti-menu-2" aria-hidden="true"></i></button>
-<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 <div class="app" id="app">
-  <div class="sidebar" id="sidebar">
+  <div class="sidebar">
     <div class="brand">
       <img src="logo.png" class="brand-logo-img" alt="Goldpark Management">
       <div class="brand-sub-text">Fuhrparkmanagement</div>
@@ -659,7 +630,7 @@ state.collapsedGroups={};
 // ===== DATA LOADING =====
 async function loadAllData(role, cid) {
   state.companies=[];state.vehicles=[];state.invoices=[];state.angebote=[];
-  state.insurances=[];state.leasings=[];state.trips=[];state.calendar=[];state.blockedSlots=[];state.drivers=[];
+  state.insurances=[];state.leasings=[];state.trips=[];state.calendar=[];state.blockedSlots=[];
 
   const compRes = await api('/api/companies');
   if (!compRes || !compRes.ok) return;
@@ -669,36 +640,32 @@ async function loadAllData(role, cid) {
   const cids = (role === 'kunde' && cid) ? [cid] : state.companies.map(c => c.id);
 
   await Promise.all(cids.map(async cidItem => {
-    const [vRes, invRes, calRes, tripRes, insRes, blkRes, angRes, drvRes] = await Promise.all([
+    const [vRes, invRes, calRes, tripRes, insRes, blkRes] = await Promise.all([
       api(`/api/vehicles?company_id=${cidItem}`),
       api(`/api/invoices?company_id=${cidItem}`),
       api(`/api/calendar?company_id=${cidItem}`),
       api(`/api/trips?company_id=${cidItem}`),
       api(`/api/insurance?company_id=${cidItem}`),
       api(`/api/blocked-slots?company_id=${cidItem}`),
-      api(`/api/angebote?company_id=${cidItem}`),
-      api(`/api/drivers?company_id=${cidItem}`),
     ]);
     if (vRes && vRes.ok) {
       const vehs = await vRes.json();
       await Promise.all(vehs.map(async v => {
         const dRes = await api(`/api/damages?vehicle_id=${v.id}`);
         v.damages = (dRes && dRes.ok) ? await dRes.json() : [];
-        const lRes = await api(`/api/leasing?vehicle_id=${v.id}`);
-        if (lRes && lRes.ok) { const ld = await lRes.json(); state.leasings.push(...ld); }
       }));
       state.vehicles.push(...vehs);
     }
-    if (invRes && invRes.ok) { const d = await invRes.json(); state.invoices.push(...d.map(r=>({...(r.data||{}),id:r.id,cid:r.company_id}))); }
+    if (invRes && invRes.ok) { const d = await invRes.json(); state.invoices.push(...d); }
     if (calRes && calRes.ok) { const d = await calRes.json(); state.calendar.push(...d); }
     if (tripRes && tripRes.ok) { const d = await tripRes.json(); state.trips.push(...d); }
     if (insRes && insRes.ok) { const d = await insRes.json(); state.insurances.push(...d); }
     if (blkRes && blkRes.ok) { const d = await blkRes.json(); state.blockedSlots.push(...d); }
-    if (angRes && angRes.ok) { const d = await angRes.json(); state.angebote.push(...d.map(r=>({...(r.data||{}),id:r.id,cid:r.company_id}))); }
-    if (drvRes && drvRes.ok) { const d = await drvRes.json(); state.drivers.push(...d); }
   }));
 }
 
+function saveCalendar(){}
+function saveBlockedSlots(){}
 function terminSlots(){return['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'];}
 function isDayBlocked(cid,datum){return state.blockedSlots.some(b=>b.cid===cid&&b.datum===datum&&b.uhrzeit==='ganztags');}
 function isSlotBlocked(cid,datum,uhrzeit){return isDayBlocked(cid,datum)||state.blockedSlots.some(b=>b.cid===cid&&b.datum===datum&&b.uhrzeit===uhrzeit);}
@@ -1066,18 +1033,13 @@ function buildMitteilungenTileHTML(cid){
       items.push({vid:v.id,cid:v.cid,text:`${v.make} ${v.model}`,sub:`${dmg.title} · ${v.plate}`,days:-9999,cls:'danger',icon:'ti-tools',label:dmg.status==='open'?'Offen':'In Bearb.'});
     });
   });
-  state.drivers.filter(d=>d.cid===cid&&d.nextCheck).forEach(d=>{
-    const days=daysUntil(d.nextCheck);
-    if(days<=14) items.push({cid,text:d.name,sub:'Führerscheinkontrolle fällig',days,cls:days<0?'danger':'warn',icon:'ti-id-badge'});
-  });
   items.sort((a,b)=>a.days-b.days);
   if(!items.length) return `<div style="text-align:center;padding:16px 8px;color:#AAA;font-size:11px">Keine Mitteilungen</div>`;
   return items.map(e=>{
     const dl=e.label||daysLabel(e.days);
     const col=e.cls==='danger'?'#CC2222':'#B07800';
     const bg=e.cls==='danger'?'rgba(204,34,34,0.06)':'rgba(176,120,0,0.06)';
-    const onclick=e.vid?`jumpToVehicle('${e.cid}','${e.vid}')`:isAdmin()?`openModal('driverLicense','${e.cid}')`:null;
-    return `<div ${onclick?`onclick="${onclick}"`:'style="cursor:default"'} style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:3px;border-radius:5px;border-left:2px solid ${col};background:${bg};${onclick?'cursor:pointer;':''}transition:opacity .12s" ${onclick?`onmouseenter="this.style.opacity='.75'" onmouseleave="this.style.opacity='1'"`:''}><i class="ti ${e.icon}" style="font-size:12px;color:${col};flex-shrink:0" aria-hidden="true"></i><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:500;color:#1A1A1A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.text}</div><div style="font-size:10px;color:#888;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.sub}</div></div><div style="font-size:10px;font-weight:600;color:${col};white-space:nowrap;flex-shrink:0">${dl}</div></div>`;
+    return `<div onclick="jumpToVehicle('${e.cid}','${e.vid}')" style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:3px;border-radius:5px;border-left:2px solid ${col};background:${bg};cursor:pointer;transition:opacity .12s" onmouseenter="this.style.opacity='.75'" onmouseleave="this.style.opacity='1'"><i class="ti ${e.icon}" style="font-size:12px;color:${col};flex-shrink:0" aria-hidden="true"></i><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:500;color:#1A1A1A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.text}</div><div style="font-size:10px;color:#888;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.sub}</div></div><div style="font-size:10px;font-weight:600;color:${col};white-space:nowrap;flex-shrink:0">${dl}</div></div>`;
   }).join('');
 }
 
@@ -1095,16 +1057,9 @@ function buildErinnerungenTileHTML(cid){
       if(d>14&&d<=30) items.push({vid:v.id,cid:v.cid,text:`${v.make} ${v.model}`,sub:`${t.label} · ${v.plate}`,days:d});
     });
   });
-  state.drivers.filter(d=>d.cid===cid&&d.nextCheck).forEach(d=>{
-    const days=daysUntil(d.nextCheck);
-    if(days>14&&days<=30) items.push({cid,text:d.name,sub:'Führerscheinkontrolle fällig',days});
-  });
   items.sort((a,b)=>a.days-b.days);
   if(!items.length) return `<div style="text-align:center;padding:16px 8px;color:#AAA;font-size:11px">Keine Erinnerungen</div>`;
-  return items.map(e=>{
-    const onclick=e.vid?`jumpToVehicle('${e.cid}','${e.vid}')`:isAdmin()?`openModal('driverLicense','${e.cid}')`:null;
-    return `<div ${onclick?`onclick="${onclick}"`:''}style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:3px;border-radius:5px;border-left:2px solid #1D5EA0;background:rgba(29,94,160,0.06);${onclick?'cursor:pointer;':''}transition:opacity .12s" ${onclick?`onmouseenter="this.style.opacity='.75'" onmouseleave="this.style.opacity='1'"`:''}><i class="ti ${e.vid?'ti-calendar':'ti-id-badge'}" style="font-size:12px;color:#1D5EA0;flex-shrink:0" aria-hidden="true"></i><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:500;color:#1A1A1A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.text}</div><div style="font-size:10px;color:#888;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.sub}</div></div><div style="font-size:10px;font-weight:600;color:#1D5EA0;white-space:nowrap;flex-shrink:0">${daysLabel(e.days)}</div></div>`;
-  }).join('');
+  return items.map(e=>`<div onclick="jumpToVehicle('${e.cid}','${e.vid}')" style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:3px;border-radius:5px;border-left:2px solid #1D5EA0;background:rgba(29,94,160,0.06);cursor:pointer;transition:opacity .12s" onmouseenter="this.style.opacity='.75'" onmouseleave="this.style.opacity='1'"><i class="ti ti-calendar" style="font-size:12px;color:#1D5EA0;flex-shrink:0" aria-hidden="true"></i><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:500;color:#1A1A1A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.text}</div><div style="font-size:10px;color:#888;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.sub}</div></div><div style="font-size:10px;font-weight:600;color:#1D5EA0;white-space:nowrap;flex-shrink:0">${daysLabel(e.days)}</div></div>`).join('');
 }
 
 function renderAdminAlertBars(){
@@ -1129,12 +1084,6 @@ function renderAdminAlertBars(){
     v.damages.filter(dmg=>dmg.status==='open'||dmg.status==='in-progress').forEach(dmg=>{
       urgent.push({vid:v.id,cid:v.cid,text:`${v.make} ${v.model} — ${dmg.title}`,days:-9999,cls:'danger',icon:'ti-tools',label:dmg.status==='open'?'Offen':'In Bearb.'});
     });
-  });
-  state.drivers.filter(d=>d.nextCheck).forEach(d=>{
-    const days=daysUntil(d.nextCheck);
-    const e={cid:d.cid,text:`${d.name} — Führerscheinkontrolle`,days,icon:'ti-id-badge'};
-    if(days<=14){urgent.push({...e,cls:days<0?'danger':'warn'});}
-    else if(days<=30){remind.push(e);}
   });
   urgent.sort((a,b)=>a.days-b.days);
   remind.sort((a,b)=>a.days-b.days);
@@ -1207,6 +1156,59 @@ function jumpToVehicle(cid,vid){
   openVehicleFleetModal(cid);
 }
 
+function openOffeneRechnungenModal(cid){
+  const offene=state.invoices.filter(i=>i.cid===cid&&i.status!=='paid').sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const gesamt=offene.reduce((s,i)=>s+i.amount,0);
+  const fmt=n=>n.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+  const rows=offene.length===0
+    ?`<tr><td colspan="7" style="text-align:center;padding:28px;color:#AAA;font-size:13px">Keine offenen Rechnungen vorhanden.</td></tr>`
+    :offene.map(inv=>{
+        const v=state.vehicles.find(v=>v.id===inv.vid);
+        const plate=v?v.plate:'—';
+        return `<tr>
+          <td style="padding:9px 11px;border-bottom:0.5px solid #F0F0F0;font-family:var(--font-mono);font-size:11px;color:var(--text3);white-space:nowrap">${inv.nr||inv.id}</td>
+          <td style="padding:9px 11px;border-bottom:0.5px solid #F0F0F0;font-family:var(--font-mono);font-size:12px;color:var(--text);white-space:nowrap">${plate}</td>
+          <td style="padding:9px 11px;border-bottom:0.5px solid #F0F0F0;font-size:12px;color:var(--text);white-space:nowrap">${inv.type}</td>
+          <td style="padding:9px 11px;border-bottom:0.5px solid #F0F0F0;font-size:12px;color:var(--text3);white-space:nowrap">${inv.date}</td>
+          <td style="padding:9px 11px;border-bottom:0.5px solid #F0F0F0;font-size:12px;color:var(--text)">${inv.desc}</td>
+          <td style="padding:9px 11px;border-bottom:0.5px solid #F0F0F0;font-size:12px;font-weight:600;color:var(--amber);text-align:right;white-space:nowrap">${fmt(inv.amount)}</td>
+          <td style="padding:9px 8px;border-bottom:0.5px solid #F0F0F0;text-align:center;white-space:nowrap"><button onclick="openInvoicePDFModal('${inv.id}')" title="Rechnung als PDF ansehen" style="display:inline-flex;align-items:center;gap:3px;background:none;border:1px solid #DCDCDC;border-radius:5px;cursor:pointer;padding:3px 7px;color:#888888;font-size:10px;font-weight:500;font-family:var(--font-sans);transition:color .15s,border-color .15s,background .15s;line-height:1" onmouseenter="this.style.color='#C0392B';this.style.borderColor='#FFBDBA';this.style.background='#FDF3F2'" onmouseleave="this.style.color='#888888';this.style.borderColor='#DCDCDC';this.style.background='none'"><i class="ti ti-file-type-pdf" style="font-size:14px" aria-hidden="true"></i>PDF</button></td>
+        </tr>`;
+      }).join('');
+  const ol=document.createElement('div');
+  ol.id='offene-rechnungen-modal-ol';
+  ol.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:600';
+  ol.innerHTML=`<div style="background:#FFF;border-radius:10px;width:72vw;max-width:900px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.18)">
+    <div style="padding:16px 20px;border-bottom:1px solid #E0E0E0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:9px">
+        <i class="ti ti-receipt" style="font-size:20px;color:var(--amber)" aria-hidden="true"></i>
+        <span style="font-size:15px;font-weight:600;color:#1A1A1A">Offene Rechnungen</span>
+      </div>
+      <button onclick="document.getElementById('offene-rechnungen-modal-ol').remove()" style="background:none;border:none;cursor:pointer;font-size:22px;color:#999;padding:0 6px;border-radius:4px;line-height:1;font-family:var(--font-sans)" onmouseenter="this.style.color='#333'" onmouseleave="this.style.color='#999'">×</button>
+    </div>
+    <div style="flex:1;overflow-y:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:#FAFAFA">
+          <th style="text-align:left;font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;padding:8px 11px;border-bottom:1px solid #E0E0E0;white-space:nowrap;font-family:var(--font-mono)">Rechnungsnr.</th>
+          <th style="text-align:left;font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;padding:8px 11px;border-bottom:1px solid #E0E0E0;white-space:nowrap">Kennzeichen</th>
+          <th style="text-align:left;font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;padding:8px 11px;border-bottom:1px solid #E0E0E0;white-space:nowrap">Art</th>
+          <th style="text-align:left;font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;padding:8px 11px;border-bottom:1px solid #E0E0E0;white-space:nowrap">Datum</th>
+          <th style="text-align:left;font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;padding:8px 11px;border-bottom:1px solid #E0E0E0">Beschreibung</th>
+          <th style="text-align:right;font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;padding:8px 11px;border-bottom:1px solid #E0E0E0;white-space:nowrap">Betrag</th>
+          <th style="padding:8px 8px;border-bottom:1px solid #E0E0E0;width:36px"></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div style="padding:12px 20px;border-top:1px solid #E0E0E0;display:flex;justify-content:flex-end;align-items:center;gap:12px;flex-shrink:0;background:#FAFAFA">
+      <span style="font-size:12px;color:var(--text3)">Gesamtbetrag offen:</span>
+      <span style="font-size:18px;font-weight:700;color:var(--amber)">${fmt(gesamt)}</span>
+    </div>
+  </div>`;
+  ol.addEventListener('click',e=>{if(e.target===ol)ol.remove();});
+  document.getElementById('offene-rechnungen-modal-ol')?.remove();
+  document.body.appendChild(ol);
+}
 
 function driverBadgeHTML(v){
   if(v.wechselfahrer)return `<div class="vcard-driver wechsel" onclick="event.stopPropagation();openModal('driverAssign','${v.id}')"><i class="ti ti-users" style="font-size:10px" aria-hidden="true"></i><span>Wechselfahrer</span></div>`;
@@ -1300,6 +1302,9 @@ function renderMain(){
 
   const _dlClick=isAdmin()?`openModal('driverLicense','${company.id}')`:`openDriverLicenseReadonlyModal('${company.id}')`;
   const _vfClick=`openVehicleFleetModal('${company.id}')`;
+  const _chatBadge=chatBadgeHTML(company.id);
+  const _chatN=loadChat(company.id).length;
+  const _chatSub=_chatN>0?`${_chatN} Nachricht${_chatN===1?'':'en'}`:'Nachricht schreiben';
   const _total=vehicles.length;
   const _verfuegbarCount=vehicles.filter(v=>v.verfuegbar!==false).length;
   const _schaedenCount=vehicles.filter(v=>v.damages.some(d=>d.status==='open'||d.status==='in-progress')).length;
@@ -1341,8 +1346,16 @@ function renderMain(){
           ${fleetStatusHTML(vehicles,company.id)}
           ${driverLicenseHTML(company.id,_dlClick)}
         </div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;flex:1;min-height:0">
-          <div class="fleet-tile" style="box-shadow:0 1px 3px rgba(0,0,0,.05)" onclick="selectSubMenu('invoices')">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;flex:1;min-height:0">
+          <div class="fleet-tile" style="box-shadow:0 1px 3px rgba(0,0,0,.05);position:relative" onclick="openChatModal('${company.id}')">
+            ${_chatBadge}
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="#1A1A1A" xmlns="http://www.w3.org/2000/svg"><path d="M20,2H4A2,2 0 0,0 2,4V22L6,18H20A2,2 0 0,0 22,16V4A2,2 0 0,0 20,2M8,11A1,1 0 0,1 7,10A1,1 0 0,1 8,9A1,1 0 0,1 9,10A1,1 0 0,1 8,11M12,11A1,1 0 0,1 11,10A1,1 0 0,1 12,9A1,1 0 0,1 13,10A1,1 0 0,1 12,11M16,11A1,1 0 0,1 15,10A1,1 0 0,1 16,9A1,1 0 0,1 17,10A1,1 0 0,1 16,11Z"/></svg>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+              <span style="font-size:15px;font-weight:500;color:var(--text)">Chat</span>
+              <span style="font-size:11px;color:var(--text3)">${_chatSub}</span>
+            </div>
+          </div>
+          <div class="fleet-tile" style="box-shadow:0 1px 3px rgba(0,0,0,.05)" onclick="openOffeneRechnungenModal('${company.id}')">
             <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
               <div style="display:flex;align-items:center;gap:8px">
                 <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0" aria-hidden="true"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><rect x="8" y="11" width="2" height="2"/><rect x="8" y="15" width="2" height="2"/><line x1="12" y1="12" x2="16" y2="12"/><line x1="12" y1="16" x2="16" y2="16"/></svg>
@@ -1396,58 +1409,357 @@ function renderMain(){
   if(_fm&&_fm.getAttribute('data-cid')===company.id){const _sec=document.getElementById('vehicles-section');if(_sec){_sec.innerHTML=buildVehicleSection(vehicles,company);if(state.selectedVehicle)renderVehicleDetail();}}
 }
 
-function renderVehicleCostPieChart(cid) { return ''; }
-function renderSavingsTable(cid){ return ''; }
+function renderVehicleCostPieChart(cid) {
+  const vehicles = state.vehicles.filter(v => v.cid === cid);
+  if (!vehicles.length) return '';
+  const data = vehicles.map(v => {
+    const total = state.invoices.filter(i => i.cid === cid && i.vid === v.id).reduce((s, i) => s + i.amount, 0);
+    return {plate: v.plate, amount: total};
+  }).filter(d => d.amount > 0);
+  if (!data.length) return '';
+  const grandTotal = data.reduce((s, d) => s + d.amount, 0);
+  // Farbgradient: günstigstes=Grün → Amber → teuerstes=Rot
+  const sorted = [...data].sort((a, b) => a.amount - b.amount);
+  sorted.forEach((item, i) => {
+    const t = sorted.length === 1 ? 0 : i / (sorted.length - 1);
+    let r, g, b;
+    if (t <= 0.5) {
+      const u = t * 2;
+      r = Math.round(42 + (201-42)*u); g = Math.round(122 + (168-122)*u); b = Math.round(74 + (76-74)*u);
+    } else {
+      const u = (t-0.5)*2;
+      r = Math.round(201 + (204-201)*u); g = Math.round(168 + (34-168)*u); b = Math.round(76 + (34-76)*u);
+    }
+    item.color = 'rgb('+r+','+g+','+b+')';
+  });
+  const CX=100, CY=100, R=88, RI=34;
+  let ang = -Math.PI/2;
+  const slices = [];
+  data.forEach(d => {
+    const frac = d.amount / grandTotal;
+    let sw = frac * 2 * Math.PI;
+    if (sw >= 2*Math.PI - 0.001) sw = 2*Math.PI - 0.001;
+    const ea = ang + sw;
+    const ma = ang + sw/2;
+    const x1=CX+R*Math.cos(ang), y1=CY+R*Math.sin(ang);
+    const x2=CX+R*Math.cos(ea),  y2=CY+R*Math.sin(ea);
+    const lg = sw > Math.PI ? 1 : 0;
+    const lr = R*0.63;
+    slices.push({
+      path:'M'+CX+','+CY+' L'+x1.toFixed(2)+','+y1.toFixed(2)+' A'+R+','+R+' 0 '+lg+' 1 '+x2.toFixed(2)+','+y2.toFixed(2)+' Z',
+      color:d.color, lx:CX+lr*Math.cos(ma), ly:CY+lr*Math.sin(ma), frac, amount:d.amount
+    });
+    ang = ea;
+  });
+  const fmt = n => n.toLocaleString('de-DE')+' €';
+  let svgPaths = '';
+  slices.forEach(s => { svgPaths += '<path d="'+s.path+'" fill="'+s.color+'" stroke="#fff" stroke-width="1.5"/>'; });
+  let svgLabels = '';
+  slices.forEach(s => {
+    if (s.frac >= 0.1) {
+      svgLabels += '<text x="'+s.lx.toFixed(1)+'" y="'+s.ly.toFixed(1)+'" text-anchor="middle" dominant-baseline="middle" font-size="8.5" font-weight="700" fill="#fff" stroke="rgba(0,0,0,0.4)" stroke-width="2" paint-order="stroke">'+fmt(s.amount)+'</text>';
+    }
+  });
+  const legendHTML = [...data].sort((a,b) => b.amount-a.amount).map(d =>
+    '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid #EEEEEE">'+
+    '<span style="width:11px;height:11px;border-radius:50%;background:'+d.color+';flex-shrink:0;display:inline-block"></span>'+
+    '<span style="font-family:var(--font-mono);font-size:11px;color:var(--text2);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+d.plate+'</span>'+
+    '<span style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap">'+fmt(d.amount)+'</span>'+
+    '</div>'
+  ).join('');
+  return '<div style="background:#FAFAFA;border:1px solid #E8E8E8;border-radius:8px;padding:14px 18px;display:flex;flex-direction:column;height:100%">'+
+    '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:6px"><i class="ti ti-chart-pie" aria-hidden="true"></i> Kostenübersicht nach Fahrzeug</div>'+
+    '<div style="display:flex;align-items:center;gap:20px;flex:1">'+
+    '<svg viewBox="0 0 200 200" style="width:180px;height:180px;flex-shrink:0">'+
+    svgPaths+
+    '<circle cx="'+CX+'" cy="'+CY+'" r="'+RI+'" fill="#FAFAFA"/>'+
+    '<text x="'+CX+'" y="94" text-anchor="middle" font-size="8.5" fill="#999">Gesamt</text>'+
+    '<text x="'+CX+'" y="109" text-anchor="middle" font-size="10" font-weight="700" fill="#1A1A1A">'+fmt(grandTotal)+'</text>'+
+    svgLabels+
+    '</svg>'+
+    '<div style="flex:1;min-width:0;align-self:center">'+legendHTML+'</div>'+
+    '</div>'+
+    '</div>';
+}
 
-function renderInvoicesHTML(cid){
-  const invs=state.invoices.filter(i=>i.cid===cid).slice().sort((a,b)=>new Date(b.datum||b.date)-new Date(a.datum||a.date));
-  const admin=isAdmin();
-  const titleRow=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-    <span style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;display:flex;align-items:center;gap:6px;white-space:nowrap"><i class="ti ti-receipt" aria-hidden="true"></i> Rechnungen (${invs.length})</span>
-    <div style="flex:1;height:0.5px;background:var(--border)"></div>
-    ${admin?`<button onclick="openAddInvoiceModal('${cid}')" style="display:inline-flex;align-items:center;gap:4px;padding:5px 11px;background:#333;color:#FFF;border:none;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;font-family:var(--font-sans);white-space:nowrap;transition:background .12s" onmouseenter="this.style.background='#1A1A1A'" onmouseleave="this.style.background='#333'"><i class="ti ti-plus" style="font-size:12px" aria-hidden="true"></i> Rechnung hinzufügen</button>`:''}
-  </div>`;
-  if(!invs.length) return titleRow+`<div class="detail-panel"><div class="empty-state"><div class="empty-icon"><i class="ti ti-receipt" aria-hidden="true"></i></div><div class="empty-text">Keine Rechnungen vorhanden</div></div></div>`;
-  const rows=invs.map(i=>{
-    const sMeta=invoiceStatusMeta(i.status);
-    const fmt=n=>(typeof n==='number'?n:parseFloat(n)||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
-    const statusCell=admin?renderInvoiceStatusControl(i,cid):`<span class="status-pill ${sMeta.cls}">${sMeta.label}</span>`;
-    const delBtn=admin?`<button onclick="deleteInvoice('${i.id}','${cid}')" style="display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:none;border:1px solid #DCDCDC;border-radius:5px;font-size:11px;color:#AAA;cursor:pointer;font-family:var(--font-sans);transition:all .12s" onmouseenter="this.style.background='#FFF0F0';this.style.color='#CC2222';this.style.borderColor='#CC2222'" onmouseleave="this.style.background='none';this.style.color='#AAA';this.style.borderColor='#DCDCDC'"><i class="ti ti-trash" style="font-size:13px" aria-hidden="true"></i></button>`:'';
-    return `<tr>
-      <td style="font-weight:500">${escHtml(i.titel||'')}</td>
-      <td style="color:var(--text3)">${i.datum||i.date||''}</td>
-      <td style="text-align:right;font-weight:600;white-space:nowrap">${fmt(i.betrag||i.amount||0)}</td>
-      <td>${statusCell}</td>
-      <td>${delBtn}</td>
-    </tr>`;
-  }).join('');
-  const total=invs.reduce((s,i)=>s+(typeof(i.betrag||i.amount)==='number'?i.betrag||i.amount:parseFloat(i.betrag||i.amount)||0),0);
-  const openAmt=invs.filter(i=>i.status==='offen'||i.status==='open').reduce((s,i)=>s+(typeof(i.betrag||i.amount)==='number'?i.betrag||i.amount:parseFloat(i.betrag||i.amount)||0),0);
-  return titleRow+`<div class="detail-panel" style="padding:0;overflow:hidden">
-    <div class="data-table-wrap" style="overflow-x:auto">
-      <table class="data-table">
-        <thead><tr><th>Titel</th><th>Datum</th><th style="text-align:right">Betrag</th><th>Status</th><th></th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
+function getLineChartData(cid){
+  const known={
+    c1:{a25:[4200,3800,5100,4600,5800,4300,5500,6000,4800,5200,4100,5600],
+        a26:[2100,1800,3000,2400,2900,2100,2600,3200,2200,2700,1900,2800]},
+    c2:{a25:[1800,1600,2200,1900,2400,1800,2300,2500,2000,2100,1700,2300],
+        a26:[900,800,1300,1100,1400,900,1200,1500,1000,1200,850,1300]},
+  };
+  if(known[cid])return known[cid];
+  const s=cid.split('').reduce((acc,c)=>acc+c.charCodeAt(0),0);
+  const base=800+(s%5)*250;
+  const a25=Array.from({length:12},(_,i)=>Math.round((base+Math.sin(i*0.8+s%7)*base*0.35+base*0.3)/100)*100);
+  const a26=a25.map(v=>Math.round(v*0.52/50)*50);
+  return{a25,a26};
+}
+
+function renderSavingsTable(cid){
+  const fmtE=n=>n.toLocaleString('de-DE')+' €';
+  const vehicleCount=Math.max(1,state.vehicles.filter(v=>v.cid===cid).length);
+  // Per-vehicle base costs; seed shifts per company slightly for variety
+  const seed=cid.split('').reduce((a,c)=>a+c.charCodeAt(0),0);
+  const offsets=[0,1,2,3,4].map(i=>((seed*(i+3))%7)-3);
+  const base=[
+    {cat:'Inspektion',    icon:'ti-tool',            reg:1200, gp:950},
+    {cat:'Reparatur',     icon:'ti-engine',          reg:2800, gp:2150},
+    {cat:'Reifenservice', icon:'ti-circle',          reg:900,  gp:720},
+    {cat:'Aufbereitung',  icon:'ti-sparkles',        reg:600,  gp:450},
+    {cat:'TÜV/HU',        icon:'ti-clipboard-check', reg:480,  gp:390},
+  ];
+  // Fleet-scaled rows
+  const rows=base.map((r,i)=>{
+    const pct=offsets[i]/100;
+    const reg=Math.round(r.reg*(1+pct)/10)*10*vehicleCount;
+    const gp=Math.round(r.gp*(1+pct)/10)*10*vehicleCount;
+    return{...r,reg,gp,save:reg-gp};
+  });
+  const totalReg=rows.reduce((s,r)=>s+r.reg,0);
+  const totalGp=rows.reduce((s,r)=>s+r.gp,0);
+  const totalSave=totalReg-totalGp;
+  const savePct=Math.round((totalSave/totalReg)*100);
+  const maxReg=Math.max(...rows.map(r=>r.reg));
+
+  let html='<div style="background:#FAFAFA;border:1px solid #E8E8E8;border-radius:8px;padding:14px 18px;display:flex;flex-direction:column;height:100%;overflow:auto">';
+  // Header
+  html+='<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:11px;display:flex;align-items:center;gap:6px">'+
+    '<i class="ti ti-piggy-bank" aria-hidden="true"></i> Ihre Ersparnis durch Goldpark Management'+
+    '<span style="margin-left:auto;font-size:10px;font-weight:400;color:var(--text3);letter-spacing:0;text-transform:none">'+vehicleCount+' Fahrzeuge</span></div>';
+  // Three big summary tiles
+  html+=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:13px">
+    <div style="background:#F0F0F0;border-radius:7px;padding:9px 11px">
+      <div style="font-size:9.5px;color:#999;margin-bottom:4px;letter-spacing:.03em">Reguläre Kosten gesamt</div>
+      <div style="font-size:14px;font-weight:600;color:#AAAAAA;text-decoration:line-through;letter-spacing:-.01em">${fmtE(totalReg)}</div>
     </div>
-  </div>
-  <div style="display:flex;gap:20px;font-size:12px;color:var(--text2);padding:2px 0">
-    <span>Gesamt: <strong>${total.toLocaleString('de-DE')} €</strong></span>
-    ${openAmt>0?`<span style="color:var(--amber)">Offen: <strong>${openAmt.toLocaleString('de-DE')} €</strong></span>`:''}
+    <div style="background:#F7FAF8;border:1px solid #D4EAD9;border-radius:7px;padding:9px 11px">
+      <div style="font-size:9.5px;color:#666;margin-bottom:4px;letter-spacing:.03em">Mit Goldpark</div>
+      <div style="font-size:14px;font-weight:600;color:#1A1A1A;letter-spacing:-.01em">${fmtE(totalGp)}</div>
+    </div>
+    <div style="background:#EFF6EF;border:1px solid #B8DDB8;border-radius:7px;padding:9px 11px">
+      <div style="font-size:9.5px;color:#2A7A4A;margin-bottom:4px;letter-spacing:.03em;font-weight:600">Gesamtersparnis</div>
+      <div style="font-size:15px;font-weight:700;color:#2A7A4A;letter-spacing:-.02em">${fmtE(totalSave)}</div>
+      <div style="font-size:9.5px;color:#2A7A4A;font-weight:600;margin-top:2px">${savePct}% gespart</div>
+    </div>
+  </div>`;
+  // Category breakdown
+  html+='<div style="display:flex;flex-direction:column;gap:7px">';
+  rows.forEach(r=>{
+    const regBarPct=Math.round((r.reg/maxReg)*100);
+    const gpBarPct=Math.round((r.gp/maxReg)*100);
+    html+=`<div style="display:grid;grid-template-columns:110px 1fr 90px;align-items:center;gap:8px">
+      <div style="font-size:11px;font-weight:500;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${r.cat}">
+        <i class="ti ${r.icon}" style="font-size:10px;color:var(--text3);margin-right:3px" aria-hidden="true"></i>${r.cat}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <div style="display:flex;align-items:center;gap:5px">
+          <div style="width:${regBarPct}%;height:7px;background:#D0D0D0;border-radius:2px;min-width:3px;flex-shrink:0"></div>
+          <span style="font-size:9.5px;color:#AAAAAA;text-decoration:line-through;white-space:nowrap">${fmtE(r.reg)}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px">
+          <div style="width:${gpBarPct}%;height:7px;background:#2A7A4A;border-radius:2px;min-width:3px;flex-shrink:0"></div>
+          <span style="font-size:9.5px;color:#2A7A4A;font-weight:700;white-space:nowrap">${fmtE(r.gp)}</span>
+        </div>
+      </div>
+      <div style="text-align:right;white-space:nowrap">
+        <span style="font-size:10.5px;font-weight:700;color:#2A7A4A">&#8722;&nbsp;${fmtE(r.save)}</span>
+      </div>
+    </div>`;
+  });
+  html+='</div></div>';
+  return html;
+}
+
+function buildInvoiceHTML(invId){
+  const inv=state.invoices.find(i=>i.id===invId);
+  if(!inv)return'';
+  const v=state.vehicles.find(vv=>vv.id===inv.vid);
+  const company=state.companies.find(c=>c.id===inv.cid);
+  const fmt=n=>n.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+  const netAmt=inv.amount;
+  const vatAmt=Math.round(netAmt*19)/100;
+  const grossAmt=Math.round((netAmt+vatAmt)*100)/100;
+  const num=String(invId.replace('inv','')).padStart(4,'0');
+  const invNum='RE-'+inv.date.substring(0,4)+'-'+num;
+  const vehicleLine=v?v.plate+' · '+v.make+' '+v.model+(v.year?' (BJ '+v.year+')':''):'—';
+  const addrMap={c1:'Gutleutstraße 12<br>60329 Frankfurt am Main',c2:'Hafenstraße 55<br>20457 Hamburg'};
+  const addr=addrMap[inv.cid]||'Adresse nicht hinterlegt';
+  const isPaid=inv.status==='paid';
+  const isCancelled=inv.status==='cancelled';
+  const stampLabel=isCancelled?'STORNIERT':isPaid?'BEZAHLT':'OFFEN';
+  const stampColor=isCancelled?'#CC2222':isPaid?'#2A7A4A':'#B07800';
+  const stamp=`<div style="position:absolute;top:38px;right:38px;border:3px solid ${stampColor};border-radius:4px;padding:6px 16px;color:${stampColor};font-size:17px;font-weight:700;letter-spacing:.12em;transform:rotate(-12deg);opacity:.8;pointer-events:none">${stampLabel}</div>`;
+  return `<div style="position:relative;font-family:'Inter',system-ui,sans-serif;color:#1A1A1A;font-size:13px;line-height:1.6">
+    ${stamp}
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:36px;padding-bottom:20px;border-bottom:2px solid #1A1A1A">
+      <div>
+        <div style="font-size:21px;font-weight:700;letter-spacing:.07em">GOLDPARK MANAGEMENT</div>
+        <div style="font-size:10px;color:#888;letter-spacing:.14em;text-transform:uppercase;margin-top:3px">Fuhrparkmanagement</div>
+        <div style="font-size:11px;color:#666;margin-top:12px;line-height:1.8">Gutleutstraße 12 · 60329 Frankfurt am Main<br>Tel: 069 900 123 · info@goldpark.de</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:24px;font-weight:700;color:#C9A84C;letter-spacing:.03em">RECHNUNG</div>
+        <div style="font-size:12px;color:#555;margin-top:8px;line-height:1.9">Nr. <strong style="color:#1A1A1A">${invNum}</strong><br>Datum: <strong style="color:#1A1A1A">${inv.date}</strong></div>
+      </div>
+    </div>
+    <div style="margin-bottom:36px">
+      <div style="font-size:9px;color:#AAA;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;border-bottom:0.5px solid #E8E8E8;padding-bottom:4px">Rechnungsempfänger</div>
+      <div style="font-weight:600;font-size:14px;margin-top:8px">${company?company.name:'—'}</div>
+      <div style="color:#555;font-size:12px;margin-top:5px;line-height:1.8">${addr}<br>${company?'z. Hd. '+company.contact:''}<br>${company?company.phone+' · '+company.email:''}</div>
+    </div>
+    <div style="background:#F7F7F7;border:1px solid #E8E8E8;border-radius:6px;padding:10px 16px;margin-bottom:28px">
+      <div style="font-size:9px;color:#AAA;text-transform:uppercase;letter-spacing:.1em">Fahrzeug</div>
+      <div style="font-weight:600;font-size:12px;margin-top:4px">${vehicleLine}</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:24px">
+      <thead><tr style="background:#1A1A1A;color:#FFF">
+        <th style="text-align:left;padding:9px 14px;font-weight:600;letter-spacing:.05em;font-size:11px">Pos.</th>
+        <th style="text-align:left;padding:9px 14px;font-weight:600;letter-spacing:.05em;font-size:11px">Art</th>
+        <th style="text-align:left;padding:9px 14px;font-weight:600;letter-spacing:.05em;font-size:11px">Beschreibung</th>
+        <th style="text-align:right;padding:9px 14px;font-weight:600;letter-spacing:.05em;font-size:11px">Betrag (netto)</th>
+      </tr></thead>
+      <tbody><tr>
+        <td style="padding:12px 14px;color:#999;border-bottom:1px solid #E8E8E8">01</td>
+        <td style="padding:12px 14px;font-weight:500;border-bottom:1px solid #E8E8E8">${inv.type}</td>
+        <td style="padding:12px 14px;color:#555;border-bottom:1px solid #E8E8E8">${inv.desc}</td>
+        <td style="padding:12px 14px;text-align:right;font-weight:500;border-bottom:1px solid #E8E8E8;white-space:nowrap">${fmt(netAmt)}</td>
+      </tr></tbody>
+    </table>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:32px">
+      <div style="width:280px">
+        <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:0.5px solid #E8E8E8;font-size:12px"><span style="color:#666">Nettobetrag</span><span>${fmt(netAmt)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:0.5px solid #E8E8E8;font-size:12px"><span style="color:#666">MwSt. 19 %</span><span>${fmt(vatAmt)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:10px 0 4px;font-size:15px;font-weight:700;border-top:2px solid #1A1A1A;margin-top:2px"><span>Gesamtbetrag</span><span>${fmt(grossAmt)}</span></div>
+      </div>
+    </div>
+    <div style="background:${isCancelled?'#FDECEC':isPaid?'#EFF6EF':'#FFF8EE'};border:1px solid ${isCancelled?'#E5C3C3':isPaid?'#C3DCC3':'#E8DFC0'};border-radius:6px;padding:10px 16px;font-size:12px;display:flex;align-items:center;gap:9px;margin-bottom:36px">
+      <span style="font-size:17px;color:${isCancelled?'#CC2222':isPaid?'#2A7A4A':'#B07800'}">${isCancelled?'✕':isPaid?'✓':'⚠'}</span>
+      <span style="font-weight:600;color:${isCancelled?'#CC2222':isPaid?'#2A7A4A':'#B07800'}">${isCancelled?'Diese Rechnung wurde storniert und ist gegenstandslos.':isPaid?'Diese Rechnung wurde beglichen.':'Diese Rechnung ist noch offen — Zahlung ausstehend.'}</span>
+    </div>
+    <div style="border-top:1px solid #E0E0E0;padding-top:14px;font-size:10px;color:#BBB;text-align:center;line-height:2">
+      Goldpark Management GmbH &nbsp;·&nbsp; Gutleutstraße 12 &nbsp;·&nbsp; 60329 Frankfurt am Main<br>
+      USt-IdNr.: DE 123 456 789 &nbsp;·&nbsp; IBAN: DE89 5005 0201 0200 1234 56 &nbsp;·&nbsp; BIC: BELADEBEXXX &nbsp;·&nbsp; Amtsgericht Frankfurt HRB 00000
+    </div>
   </div>`;
 }
 
+function openInvoicePDFModal(invId){
+  const inv=state.invoices.find(i=>i.id===invId);
+  if(!inv)return;
+  const num=String(invId.replace('inv','')).padStart(4,'0');
+  const invNum='RE-'+inv.date.substring(0,4)+'-'+num;
+  document.getElementById('invoice-pdf-modal-ol')?.remove();
+  const ol=document.createElement('div');
+  ol.id='invoice-pdf-modal-ol';
+  ol.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.68);display:flex;align-items:center;justify-content:center;z-index:600';
+  ol.innerHTML=`<div style="background:#FFF;border-radius:10px;width:720px;max-width:96vw;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 48px rgba(0,0,0,.25)">
+    <div style="padding:13px 18px;border-bottom:1px solid #E0E0E0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:#FAFAFA">
+      <div style="display:flex;align-items:center;gap:8px">
+        <i class="ti ti-file-type-pdf" style="font-size:18px;color:#CC2222" aria-hidden="true"></i>
+        <span style="font-size:13px;font-weight:600;color:#1A1A1A">Rechnungsvorschau — ${invNum}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="printInvoice('${invId}')" style="display:inline-flex;align-items:center;gap:5px;padding:6px 13px;background:#1A1A1A;color:#FFF;border:none;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:var(--font-sans)"><i class="ti ti-printer" style="font-size:13px" aria-hidden="true"></i> Drucken</button>
+        <button onclick="document.getElementById('invoice-pdf-modal-ol').remove()" style="background:none;border:none;cursor:pointer;font-size:22px;color:#999;padding:0 5px;line-height:1;font-family:var(--font-sans)" onmouseenter="this.style.color='#333'" onmouseleave="this.style.color='#999'">×</button>
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:32px 40px;background:#E8E8E8">
+      <div style="background:#FFF;padding:52px;box-shadow:0 2px 18px rgba(0,0,0,.13);min-height:760px">
+        ${buildInvoiceHTML(invId)}
+      </div>
+    </div>
+  </div>`;
+  ol.addEventListener('click',e=>{if(e.target===ol)ol.remove();});
+  document.body.appendChild(ol);
+}
+
+function printInvoice(invId){
+  const body=buildInvoiceHTML(invId);
+  const w=window.open('','_blank','width=860,height=960');
+  w.document.write('<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><title>Rechnung</title>'
+    +'<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/tabler-icons.min.css">'
+    +'<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">'
+    +'<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:\'Inter\',system-ui,sans-serif;background:#FFF;color:#1A1A1A;padding:52px 64px;max-width:800px;margin:0 auto}@media print{@page{size:A4;margin:20mm}body{padding:0}}</style>'
+    +'</head><body>'+body+'</body></html>');
+  w.document.close();
+  setTimeout(()=>w.print(),600);
+}
+
+function renderInvoicesHTML(cid){
+  const invs=state.invoices.filter(i=>i.cid===cid);
+  const titleRow=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <span style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;display:flex;align-items:center;gap:6px;white-space:nowrap"><i class="ti ti-receipt" aria-hidden="true"></i> Rechnungen &amp; Servicenachweise (${invs.length})</span>
+    <div style="flex:1;height:0.5px;background:var(--border)"></div>
+  </div>`;
+  const listPanelHeader=`<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-bottom:1px solid #E8E8E8;background:#FAFAFA;flex-shrink:0">
+    <span style="font-size:11px;font-weight:500;color:var(--text2)">Rechnungsliste</span>
+    ${isAdmin()?`<button onclick="openAddInvoiceModal('${cid}')" style="display:inline-flex;align-items:center;gap:4px;padding:5px 11px;background:#333;color:#FFF;border:none;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;font-family:var(--font-sans);white-space:nowrap;transition:background .12s" onmouseenter="this.style.background='#1A1A1A'" onmouseleave="this.style.background='#333'"><i class="ti ti-plus" style="font-size:12px" aria-hidden="true"></i> Rechnung hinzufügen</button>`:''}
+  </div>`;
+  if(!invs.length) return titleRow+
+    `<div class="detail-panel" style="padding:0;overflow:hidden">
+      ${listPanelHeader}
+      <div class="empty-state"><div class="empty-icon"><i class="ti ti-receipt" aria-hidden="true"></i></div><div class="empty-text">Keine Rechnungen vorhanden</div></div>
+    </div>`;
+  const sorted=invs.slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const admin=isAdmin();
+  const rows=sorted.map(i=>{
+    const v=state.vehicles.find(vv=>vv.id===i.vid);
+    const plate=v?v.plate:'—';
+    const cancelled=i.status==='cancelled';
+    const sMeta=invoiceStatusMeta(i.status);
+    const descStyle=cancelled?'color:var(--red);text-decoration:line-through':'color:var(--text2)';
+    const amtStyle='text-align:right;font-weight:500;white-space:nowrap'+(cancelled?';color:var(--red);text-decoration:line-through':'');
+    // Status-Zelle: Admin bekommt klickbare Badges, Kunde nur die Anzeige
+    const statusCell=admin
+      ?renderInvoiceStatusControl(i,cid)
+      :`<span class="status-pill ${sMeta.cls}">${sMeta.label}</span>`;
+    return `<tr${cancelled?' style="opacity:.72"':''}>
+      <td><span style="font-family:var(--font-mono);font-size:11px;color:var(--text3);white-space:nowrap">${i.nr||i.id}</span></td>
+      <td>${i.date}</td>
+      <td><span style="font-family:var(--font-mono);font-size:11px">${plate}</span></td>
+      <td><span class="badge badge-ok" style="background:#F0F0F0;color:#555">${i.type}</span></td>
+      <td style="${descStyle}">${i.desc}</td>
+      <td style="${amtStyle}">${i.amount.toLocaleString('de-DE')} €</td>
+      <td>${statusCell}</td>
+      <td><div style="display:flex;gap:5px;align-items:center">
+        <button onclick="openInvoicePDFModal('${i.id}')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;background:none;border:1px solid #DCDCDC;border-radius:5px;font-size:11px;color:#555;cursor:pointer;font-family:var(--font-sans);white-space:nowrap;transition:all .12s" onmouseenter="this.style.background='#FFF0F0';this.style.color='#CC2222';this.style.borderColor='#CC2222'" onmouseleave="this.style.background='none';this.style.color='#555';this.style.borderColor='#DCDCDC'"><i class="ti ti-file-type-pdf" style="font-size:13px" aria-hidden="true"></i> PDF</button>
+        ${admin&&!cancelled?`<button onclick="cancelInvoice('${i.id}','${cid}')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;background:none;border:1px solid #DCDCDC;border-radius:5px;font-size:11px;color:#B07800;cursor:pointer;font-family:var(--font-sans);white-space:nowrap;transition:all .12s" onmouseenter="this.style.background='#FDECEC';this.style.color='#CC2222';this.style.borderColor='#CC2222'" onmouseleave="this.style.background='none';this.style.color='#B07800';this.style.borderColor='#DCDCDC'"><i class="ti ti-ban" style="font-size:13px" aria-hidden="true"></i> Stornieren</button>`:''}
+        ${admin?`<button onclick="deleteInvoice('${i.id}','${cid}')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;background:none;border:1px solid #DCDCDC;border-radius:5px;font-size:11px;color:#AAA;cursor:pointer;font-family:var(--font-sans);white-space:nowrap;transition:all .12s" onmouseenter="this.style.background='#FFF0F0';this.style.color='#CC2222';this.style.borderColor='#CC2222'" onmouseleave="this.style.background='none';this.style.color='#AAA';this.style.borderColor='#DCDCDC'"><i class="ti ti-trash" style="font-size:13px" aria-hidden="true"></i> Löschen</button>`:''}
+      </div></td>
+    </tr>`;
+  }).join('');
+  const total=invs.reduce((s,i)=>s+i.amount,0);
+  const openAmt=invs.filter(i=>i.status==='open').reduce((s,i)=>s+i.amount,0);
+  return titleRow+
+    `<div style="display:flex;gap:12px;margin-bottom:14px;align-items:stretch"><div style="flex:1;min-width:0">${renderVehicleCostPieChart(cid)}</div><div style="flex:1;min-width:0">${renderSavingsTable(cid)}</div></div>
+    <div class="detail-panel" style="padding:0;overflow:hidden">
+      ${listPanelHeader}
+      <div style="max-height:380px;overflow-y:auto">
+        <table class="data-table">
+          <thead style="position:sticky;top:0;z-index:1"><tr><th style="font-family:var(--font-mono)">Rechnungsnr.</th><th>Datum</th><th>Fahrzeug</th><th>Art</th><th>Beschreibung</th><th style="text-align:right">Betrag</th><th>Status</th><th></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>
+    <div style="display:flex;gap:20px;font-size:12px;color:var(--text2);padding:2px 0">
+      <span>Gesamt: <strong>${total.toLocaleString('de-DE')} €</strong></span>
+      ${openAmt>0?`<span style="color:var(--amber)">Offen: <strong>${openAmt.toLocaleString('de-DE')} €</strong></span>`:''}
+    </div>`;
+}
+
 function invoiceStatusMeta(st){
-  if(st==='bezahlt'||st==='paid')return{label:'Bezahlt',cls:'pill-paid'};
+  if(st==='paid')return{label:'Bezahlt',cls:'pill-paid'};
+  if(st==='cancelled')return{label:'Storniert',cls:'pill-cancelled'};
   return{label:'Offen',cls:'pill-open'};
 }
 
 function renderInvoiceStatusControl(i,cid){
-  const opts=[['offen','Offen'],['bezahlt','Bezahlt']];
-  const cur=i.status==='paid'?'bezahlt':(i.status||'offen');
-  return `<div style=”display:inline-flex;gap:3px;flex-wrap:wrap”>`+opts.map(([val,label])=>{
-    const active=cur===val;
-    return `<button class=”inv-status-btn iv-${val==='bezahlt'?'paid':'open'}${active?' active':''}” ${active?'':`onclick=”setInvoiceStatus('${i.id}','${cid}','${val}')”`}>${label}</button>`;
+  const opts=[['open','Offen'],['paid','Bezahlt'],['cancelled','Storniert']];
+  return `<div style="display:inline-flex;gap:3px;flex-wrap:wrap">`+opts.map(([val,label])=>{
+    const active=i.status===val;
+    return `<button class="inv-status-btn iv-${val}${active?' active':''}" ${active?'':`onclick="setInvoiceStatus('${i.id}','${cid}','${val}')"`} title="Status auf „${label}“ setzen">${label}</button>`;
   }).join('')+`</div>`;
 }
 
@@ -1455,11 +1767,22 @@ async function setInvoiceStatus(invId,cid,newStatus){
   if(!isAdmin())return;
   const inv=state.invoices.find(i=>i.id===invId);
   if(!inv)return;
-  const data={titel:inv.titel,beschreibung:inv.beschreibung,betrag:inv.betrag,datum:inv.datum,status:newStatus};
-  const res=await api('/api/invoices/'+invId,{method:'PUT',body:JSON.stringify({data})});
+  const res=await api('/api/invoices/'+invId+'?company_id='+cid,{method:'PUT',body:JSON.stringify({...inv,status:newStatus})});
   if(res&&res.ok){inv.status=newStatus;}
   reloadInvoicesSection(cid);
 }
+
+async function cancelInvoice(invId,cid){
+  if(!isAdmin())return;
+  if(!confirm('Rechnung wirklich stornieren?\nDie Rechnung bleibt in der Liste sichtbar, wird aber als storniert (rot) markiert und zählt nicht mehr zur offenen Summe.'))return;
+  const inv=state.invoices.find(i=>i.id===invId);
+  if(!inv)return;
+  const res=await api('/api/invoices/'+invId+'?company_id='+cid,{method:'PUT',body:JSON.stringify({...inv,status:'cancelled'})});
+  if(res&&res.ok){inv.status='cancelled';}
+  reloadInvoicesSection(cid);
+}
+
+function saveInvoices(){}
 
 function reloadInvoicesSection(cid){
   const company=state.companies.find(c=>c.id===cid);
@@ -1475,22 +1798,28 @@ function reloadInvoicesSection(cid){
 
 async function deleteInvoice(invId,cid){
   if(!confirm('Rechnung wirklich löschen?\nDiese Aktion kann nicht rückgängig gemacht werden.'))return;
-  const res=await api('/api/invoices/'+invId,{method:'DELETE'});
+  const res=await api('/api/invoices/'+invId+'?company_id='+cid,{method:'DELETE'});
   if(res&&res.ok){state.invoices=state.invoices.filter(i=>i.id!==invId);}
   reloadInvoicesSection(cid);
 }
 
 function openAddInvoiceModal(cid){
+  const vehicles=state.vehicles.filter(v=>v.cid===cid);
+  if(!vehicles.length){alert('Keine Fahrzeuge für diese Firma gefunden.');return;}
+  const vOptions=vehicles.map(v=>`<option value="${v.id}">${v.plate} · ${v.make} ${v.model}</option>`).join('');
   const today=new Date().toISOString().slice(0,10);
-  const html=`<div class="modal" style="width:440px;max-width:94vw">
+  const html=`<div class="modal" style="width:480px;max-width:94vw">
     <div class="modal-title">Rechnung hinzufügen <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
-    <div class="form-group"><label class="form-label">Titel *</label><input class="form-input" id="ni-titel" placeholder="z. B. Inspektion Oktober 2026"></div>
-    <div class="form-group"><label class="form-label">Beschreibung</label><input class="form-input" id="ni-desc" placeholder="Optional"></div>
+    <div class="form-group"><label class="form-label">Fahrzeug *</label><select class="form-input" id="ni-vid">${vOptions}</select></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Art *</label><select class="form-input" id="ni-type"><option value="Service">Service</option><option value="Reparatur">Reparatur</option><option value="Reifen">Reifen</option><option value="Aufbereitung">Aufbereitung</option><option value="TÜV">TÜV</option></select></div>
+      <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="ni-status"><option value="open">Offen</option><option value="paid">Bezahlt</option><option value="cancelled">Storniert</option></select></div>
+    </div>
+    <div class="form-group"><label class="form-label">Beschreibung *</label><input class="form-input" id="ni-desc" placeholder="z. B. Ölwechsel &amp; Inspektion 90.000 km"></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Datum *</label><input class="form-input" type="date" id="ni-date" value="${today}"></div>
-      <div class="form-group"><label class="form-label">Betrag in € *</label><input class="form-input" type="number" id="ni-amount" min="0.01" step="0.01" placeholder="0,00"></div>
+      <div class="form-group"><label class="form-label">Betrag in € (netto) *</label><input class="form-input" type="number" id="ni-amount" min="0.01" step="0.01" placeholder="0,00"></div>
     </div>
-    <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="ni-status"><option value="offen">Offen</option><option value="bezahlt">Bezahlt</option></select></div>
     <div id="ni-err" style="font-size:11px;color:var(--red);min-height:16px;margin-bottom:2px"></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal()">Abbrechen</button>
@@ -1500,25 +1829,54 @@ function openAddInvoiceModal(cid){
   document.getElementById('modal-container').innerHTML=`<div class="modal-overlay" onclick="if(event.target===this)closeModal()">${html}</div>`;
 }
 
+function nextInvoiceNr(){
+  const year=new Date().getFullYear();
+  const prefix='RE-'+year+'-';
+  let max=0;
+  state.invoices.forEach(inv=>{
+    if(inv.nr&&inv.nr.startsWith(prefix)){
+      const n=parseInt(inv.nr.slice(prefix.length),10);
+      if(!isNaN(n)&&n>max)max=n;
+    }
+  });
+  return prefix+String(max+1).padStart(3,'0');
+}
+
 async function saveNewInvoice(cid){
-  const titel=((document.getElementById('ni-titel')||{}).value||'').trim();
-  const beschreibung=((document.getElementById('ni-desc')||{}).value||'').trim();
-  const datum=(document.getElementById('ni-date')||{}).value||'';
+  const vid=(document.getElementById('ni-vid')||{}).value||'';
+  const type=(document.getElementById('ni-type')||{}).value||'';
+  const status=(document.getElementById('ni-status')||{}).value||'open';
+  const desc=((document.getElementById('ni-desc')||{}).value||'').trim();
+  const date=(document.getElementById('ni-date')||{}).value||'';
   const amtRaw=parseFloat((document.getElementById('ni-amount')||{}).value||'');
-  const status=(document.getElementById('ni-status')||{}).value||'offen';
   const errEl=document.getElementById('ni-err');
-  if(!titel||!datum||isNaN(amtRaw)||amtRaw<=0){
-    if(errEl)errEl.textContent='Bitte Titel, Datum und Betrag ausfüllen.';
+  if(!vid||!desc||!date||isNaN(amtRaw)||amtRaw<=0){
+    if(errEl)errEl.textContent='Bitte alle Pflichtfelder korrekt ausfüllen.';
     return;
   }
-  const betrag=Math.round(amtRaw*100)/100;
-  const data={titel,beschreibung,datum,betrag,status};
-  const res=await api('/api/invoices',{method:'POST',body:JSON.stringify({company_id:cid,data})});
-  if(res&&res.ok){const saved=await res.json();state.invoices.push({...(saved.data||{}),id:saved.id,cid:saved.company_id});closeModal();reloadInvoicesSection(cid);}
+  const amount=Math.round(amtRaw*100)/100;
+  const payload={cid,vid,date,type,desc,amount,status,nr:nextInvoiceNr()};
+  const res=await api('/api/invoices?company_id='+cid,{method:'POST',body:JSON.stringify(payload)});
+  if(res&&res.ok){const saved=await res.json();state.invoices.push(saved);closeModal();reloadInvoicesSection(cid);}
   else{if(errEl)errEl.textContent='Fehler beim Speichern.';}
 }
 
 /* ===================== ANGEBOTE ===================== */
+function saveAngebote(){}
+
+function angebotStatusInfo(st){
+  if(st==='green')return{label:'Freigegeben',cls:'cal-s-green',dot:'🟢',color:'var(--green)',bg:'var(--green-bg)',border:'#C3DCC3'};
+  if(st==='yellow')return{label:'Ausstehend',cls:'cal-s-yellow',dot:'🟡',color:'var(--amber)',bg:'var(--amber-bg)',border:'#E8DFC0'};
+  if(st==='red')return{label:'Abgelehnt',cls:'cal-s-red',dot:'🔴',color:'var(--red)',bg:'var(--red-bg)',border:'#E5C3C3'};
+  return{label:'Offen',cls:'cal-s-none',dot:'⚪',color:'#777',bg:'#F4F4F4',border:'#E8E8E8'};
+}
+
+function kategorieToInvoiceType(k){
+  if(k==='Werkstattreparatur')return'Reparatur';
+  if(k==='Reifenwechsel')return'Reifen';
+  return k;
+}
+
 function reloadAngeboteSection(cid){
   const company=state.companies.find(c=>c.id===cid);
   if(!company)return;
@@ -1533,110 +1891,335 @@ function reloadAngeboteSection(cid){
   try{renderAdminAlertBars();}catch(e){}
 }
 
-function angebotStatusMeta(st){
-  if(st==='bestaetigt')return{label:'Bestätigt',cls:'pill-paid',color:'var(--green)'};
-  if(st==='abgelehnt')return{label:'Abgelehnt',cls:'pill-cancelled',color:'var(--red)'};
-  return{label:'Offen',cls:'pill-open',color:'var(--amber)'};
-}
-
-function renderAngebotCard(a,cid){
-  const sm=angebotStatusMeta(a.status||a.kundenStatus);
-  const admin=isAdmin();
-  const fmt=n=>(typeof n==='number'?n:parseFloat(n)||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
-  const statusPill=`<span class="status-pill ${sm.cls}">${sm.label}</span>`;
-  const adminBtns=admin?`<button onclick="deleteAngebot('${a.id}','${cid}')" style="display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:none;border:1px solid #DCDCDC;border-radius:5px;font-size:11px;color:#AAA;cursor:pointer;font-family:var(--font-sans);white-space:nowrap;transition:all .12s" onmouseenter="this.style.background='#FFF0F0';this.style.color='#CC2222';this.style.borderColor='#CC2222'" onmouseleave="this.style.background='none';this.style.color='#AAA';this.style.borderColor='#DCDCDC'"><i class="ti ti-trash" style="font-size:13px" aria-hidden="true"></i> Löschen</button>`:'';
-  const customerBtns=!admin?`<div style="display:flex;gap:7px;flex-wrap:wrap">
-    ${['bestaetigt','abgelehnt'].map(val=>{
-      const info=angebotStatusMeta(val);
-      const active=(a.status||a.kundenStatus)===val;
-      return `<button onclick="setAngebotStatus('${a.id}','${cid}','${val}')" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-sans);border:1.5px solid ${active?info.color:'#DCDCDC'};background:${active?'#F0F7F3':'#FFF'};color:${active?info.color:'#666'};transition:all .12s">${val==='bestaetigt'?'✓ Bestätigen':'✕ Ablehnen'}</button>`;
-    }).join('')}
-  </div>`:'';
-  return `<div style="border:1px solid #E8E8E8;border-left:4px solid ${sm.color};border-radius:8px;padding:13px 15px;background:#FFF">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
-      <div style="min-width:0;flex:1">
-        <div style="font-size:13px;font-weight:600;color:var(--text)">${escHtml(a.titel||'')}</div>
-        ${a.beschreibung?`<div style="font-size:12px;color:var(--text2);margin-top:4px">${escHtml(a.beschreibung)}</div>`:''}
-        <div style="font-size:11px;color:var(--text3);margin-top:4px">${a.datum||''}</div>
-      </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:17px;font-weight:700;color:var(--text);white-space:nowrap">${fmt(a.betrag||a.amount||0)}</div>
-        <div style="margin-top:6px">${statusPill}</div>
-      </div>
-    </div>
-    <div style="display:flex;gap:6px;align-items:center;margin-top:11px;padding-top:10px;border-top:1px solid #F0F0F0;flex-wrap:wrap">
-      ${customerBtns}${adminBtns}
-    </div>
-  </div>`;
-}
-
 function renderAngeboteHTML(cid){
-  const admin=isAdmin();
-  const list=state.angebote.filter(a=>a.cid===cid).slice().sort((a,b)=>new Date(b.datum)-new Date(a.datum));
+  const list=state.angebote.filter(a=>a.cid===cid);
   const titleRow=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
     <span style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;display:flex;align-items:center;gap:6px;white-space:nowrap"><i class="ti ti-file-text" aria-hidden="true"></i> Angebote (${list.length})</span>
     <div style="flex:1;height:0.5px;background:var(--border)"></div>
-    ${admin?`<button onclick="openAddAngebotModal('${cid}')" style="display:inline-flex;align-items:center;gap:4px;padding:5px 11px;background:#333;color:#FFF;border:none;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;font-family:var(--font-sans);white-space:nowrap;transition:background .12s" onmouseenter="this.style.background='#1A1A1A'" onmouseleave="this.style.background='#333'"><i class="ti ti-plus" style="font-size:12px" aria-hidden="true"></i> Angebot hinzufügen</button>`:''}
   </div>`;
-  if(!list.length) return titleRow+`<div class="detail-panel"><div class="empty-state"><div class="empty-icon"><i class="ti ti-file-text" aria-hidden="true"></i></div><div class="empty-text">Keine Angebote vorhanden</div></div></div>`;
-  const cards=list.map(a=>renderAngebotCard(a,cid)).join('');
-  const total=list.reduce((s,a)=>s+(typeof(a.betrag||a.amount)==='number'?a.betrag||a.amount:parseFloat(a.betrag||a.amount)||0),0);
-  return titleRow+`<div class="detail-panel" style="padding:14px;display:flex;flex-direction:column;gap:12px;max-height:600px;overflow-y:auto">${cards}</div>
-  <div style="font-size:12px;color:var(--text2);padding:2px 0">Gesamt: <strong>${total.toLocaleString('de-DE')} €</strong></div>`;
+  const addBtn=isAdmin()?`<button onclick="openAddAngebotModal('${cid}')" style="display:inline-flex;align-items:center;gap:4px;padding:5px 11px;background:#333;color:#FFF;border:none;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;font-family:var(--font-sans);white-space:nowrap;transition:background .12s" onmouseenter="this.style.background='#1A1A1A'" onmouseleave="this.style.background='#333'"><i class="ti ti-plus" style="font-size:12px" aria-hidden="true"></i> Angebot hinzufügen</button>`:'';
+  const listPanelHeader=`<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-bottom:1px solid #E8E8E8;background:#FAFAFA;flex-shrink:0">
+    <span style="font-size:11px;font-weight:500;color:var(--text2)">Angebotsübersicht</span>
+    ${addBtn}
+  </div>`;
+  if(!list.length) return titleRow+
+    `<div class="detail-panel" style="padding:0;overflow:hidden">
+      ${listPanelHeader}
+      <div class="empty-state"><div class="empty-icon"><i class="ti ti-file-text" aria-hidden="true"></i></div><div class="empty-text">Keine Angebote vorhanden</div></div>
+    </div>`;
+  const sorted=list.slice().sort((a,b)=>new Date(b.datum)-new Date(a.datum));
+  const cards=sorted.map(a=>renderAngebotCard(a,cid)).join('');
+  const total=list.reduce((s,a)=>s+a.betrag,0);
+  const freigegeben=list.filter(a=>a.kundenStatus==='green').reduce((s,a)=>s+a.betrag,0);
+  return titleRow+
+    `<div class="detail-panel" style="padding:0;overflow:hidden">
+      ${listPanelHeader}
+      <div style="padding:14px;display:flex;flex-direction:column;gap:12px;max-height:560px;overflow-y:auto">${cards}</div>
+    </div>
+    <div style="display:flex;gap:20px;font-size:12px;color:var(--text2);padding:2px 0">
+      <span>Gesamt: <strong>${total.toLocaleString('de-DE')} €</strong></span>
+      ${freigegeben>0?`<span style="color:var(--green)">Freigegeben: <strong>${freigegeben.toLocaleString('de-DE')} €</strong></span>`:''}
+    </div>`;
+}
+
+function renderAngebotCard(a,cid){
+  const si=angebotStatusInfo(a.kundenStatus);
+  const admin=isAdmin();
+  const v=state.vehicles.find(x=>x.id===a.vehicleId);
+  const vehLine=`${a.plate}${v?' · '+v.make+' '+v.model:''}`;
+  const statusPill=`<span class="cal-status-pill ${si.cls}">${si.dot} ${si.label}</span>`;
+  const convertedBadge=a.umgewandelt?`<span class="status-pill pill-open" style="background:#EEF3FA;color:#2C6BB3;margin-left:6px"><i class="ti ti-file-invoice" style="font-size:10px" aria-hidden="true"></i> In Rechnung umgewandelt</span>`:'';
+
+  // Admin-Nachricht Block
+  let adminMsgBlock;
+  if(admin){
+    adminMsgBlock=`<div style="margin-top:10px">
+      <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Nachricht an Kunde</div>
+      <textarea id="an-${a.id}" rows="2" style="width:100%;box-sizing:border-box;font-family:var(--font-sans);font-size:12px;padding:7px 9px;border:1px solid #DCDCDC;border-radius:6px;resize:vertical" placeholder="Kommentar / Hinweis zum Angebot …">${escHtml(a.adminNachricht||'')}</textarea>
+      <div style="margin-top:5px;text-align:right"><button onclick="saveAdminNachricht('${a.id}','${cid}')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#333;color:#FFF;border:none;border-radius:5px;font-size:11px;cursor:pointer;font-family:var(--font-sans)"><i class="ti ti-device-floppy" style="font-size:12px" aria-hidden="true"></i> Nachricht speichern</button></div>
+    </div>`;
+  }else{
+    adminMsgBlock=a.adminNachricht?`<div style="margin-top:10px;background:#F7F7F7;border:1px solid #E8E8E8;border-radius:6px;padding:8px 11px">
+      <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Nachricht von Goldpark</div>
+      <div style="font-size:12px;color:var(--text)">${escHtml(a.adminNachricht)}</div>
+    </div>`:'';
+  }
+
+  // Kundenrückmeldung Block
+  let feedbackBlock;
+  if(admin){
+    feedbackBlock=`<div style="margin-top:10px;background:${si.bg};border:1px solid ${si.border};border-radius:6px;padding:8px 11px">
+      <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Kundenrückmeldung</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${statusPill}
+        <span style="font-size:12px;color:var(--text2)">${a.kundenNachricht?escHtml(a.kundenNachricht):'<em style="color:#999">Keine Nachricht</em>'}</span>
+      </div>
+    </div>`;
+  }else{
+    const opts=[['green','🟢','Freigabe'],['yellow','🟡','Ausstehend'],['red','🔴','Ablehnen']];
+    const ampel=opts.map(([val,dot,label])=>{
+      const info=angebotStatusInfo(val);
+      const active=a.kundenStatus===val;
+      const disabled=a.umgewandelt&&val!=='green';
+      return `<button ${disabled?'disabled':''} onclick="setAngebotStatus('${a.id}','${cid}','${val}')" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:${disabled?'not-allowed':'pointer'};opacity:${disabled?'.5':'1'};font-family:var(--font-sans);border:1.5px solid ${active?info.color:'#DCDCDC'};background:${active?info.bg:'#FFF'};color:${active?info.color:'#666'};transition:all .12s">${dot} ${label}</button>`;
+    }).join('');
+    feedbackBlock=`<div style="margin-top:10px">
+      <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Ihre Freigabe</div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap">${ampel}</div>
+      ${a.umgewandelt?`<div style="font-size:11px;color:var(--green);margin-top:6px"><i class="ti ti-check" style="font-size:11px" aria-hidden="true"></i> Freigegeben und als Rechnung übernommen.</div>`:''}
+      <div style="margin-top:8px">
+        <textarea id="kn-${a.id}" rows="2" style="width:100%;box-sizing:border-box;font-family:var(--font-sans);font-size:12px;padding:7px 9px;border:1px solid #DCDCDC;border-radius:6px;resize:vertical" placeholder="Ihre Rückmeldung / Nachricht …">${escHtml(a.kundenNachricht||'')}</textarea>
+        <div style="margin-top:5px;text-align:right"><button onclick="saveKundenNachricht('${a.id}','${cid}')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#333;color:#FFF;border:none;border-radius:5px;font-size:11px;cursor:pointer;font-family:var(--font-sans)"><i class="ti ti-send" style="font-size:12px" aria-hidden="true"></i> Nachricht senden</button></div>
+      </div>
+    </div>`;
+  }
+
+  // Termin-Block (gewählter Termin) — für Admin & Kunde sichtbar
+  const terminDatumStr=a.terminDatum?new Date(a.terminDatum).toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'}):'';
+  const terminBlock=a.terminDatum?`<div style="margin-top:10px;background:#FCF8EC;border:1px solid #E8DFC0;border-radius:6px;padding:8px 11px">
+      <div style="font-size:10px;color:#8a6d1e;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">📅 Gewählter Termin</div>
+      <div style="font-size:12px;color:var(--text);font-weight:600">${terminDatumStr} · ${a.terminUhrzeit||''} Uhr</div>
+      ${a.terminNachricht?`<div style="font-size:11px;color:var(--text2);margin-top:3px">Nachricht: „${escHtml(a.terminNachricht)}“</div>`:''}
+    </div>`:'';
+  // Termin-wählen-Button — nur Kundenportal
+  const terminBtn=!admin?`<button onclick="openAngebotTerminModal('${a.id}')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;background:none;border:1px solid #C9A84C;border-radius:5px;font-size:11px;color:#8a6d1e;cursor:pointer;font-family:var(--font-sans);white-space:nowrap;transition:all .12s" onmouseenter="this.style.background='#FFF8EA';this.style.borderColor='#B07800'" onmouseleave="this.style.background='none';this.style.borderColor='#C9A84C'">📅 ${a.terminDatum?'Termin ändern':'Termin wählen'}</button>`:'';
+
+  const adminBtns=admin?`
+    <button onclick="openAddAngebotModal('${cid}','${a.id}')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;background:none;border:1px solid #DCDCDC;border-radius:5px;font-size:11px;color:#555;cursor:pointer;font-family:var(--font-sans);white-space:nowrap;transition:all .12s" onmouseenter="this.style.background='#F5F5F5';this.style.borderColor='#BBB'" onmouseleave="this.style.background='none';this.style.borderColor='#DCDCDC'"><i class="ti ti-edit" style="font-size:13px" aria-hidden="true"></i> Bearbeiten</button>
+    <button onclick="deleteAngebot('${a.id}','${cid}')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;background:none;border:1px solid #DCDCDC;border-radius:5px;font-size:11px;color:#AAA;cursor:pointer;font-family:var(--font-sans);white-space:nowrap;transition:all .12s" onmouseenter="this.style.background='#FFF0F0';this.style.color='#CC2222';this.style.borderColor='#CC2222'" onmouseleave="this.style.background='none';this.style.color='#AAA';this.style.borderColor='#DCDCDC'"><i class="ti ti-trash" style="font-size:13px" aria-hidden="true"></i> Löschen</button>`:'';
+
+  return `<div style="border:1px solid #E8E8E8;border-left:4px solid ${si.color};border-radius:8px;padding:13px 15px;background:#FFF">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
+      <div style="min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-family:var(--font-mono);font-size:12px;font-weight:600;color:var(--text)">${vehLine}</span>
+          <span class="badge badge-ok" style="background:#F0F0F0;color:#555">${a.kategorie}</span>
+          ${convertedBadge}
+        </div>
+        <div style="font-size:13px;color:var(--text);margin-top:6px">${escHtml(a.beschreibung)}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Datum: ${a.datum}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:17px;font-weight:700;color:var(--text);white-space:nowrap">${a.betrag.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})} €</div>
+        <div style="margin-top:6px">${statusPill}</div>
+      </div>
+    </div>
+    ${adminMsgBlock}
+    ${feedbackBlock}
+    ${terminBlock}
+    <div style="display:flex;gap:6px;align-items:center;margin-top:11px;padding-top:10px;border-top:1px solid #F0F0F0;flex-wrap:wrap">
+      <button onclick="openAngebotPDFModal('${a.id}')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;background:none;border:1px solid #DCDCDC;border-radius:5px;font-size:11px;color:#555;cursor:pointer;font-family:var(--font-sans);white-space:nowrap;transition:all .12s" onmouseenter="this.style.background='#FFF8EA';this.style.color='#B07800';this.style.borderColor='#C9A84C'" onmouseleave="this.style.background='none';this.style.color='#555';this.style.borderColor='#DCDCDC'"><i class="ti ti-file-text" style="font-size:13px" aria-hidden="true"></i> Angebot (PDF)</button>
+      ${terminBtn}
+      ${adminBtns}
+    </div>
+  </div>`;
 }
 
 async function setAngebotStatus(id,cid,status){
   const a=state.angebote.find(x=>x.id===id);
   if(!a)return;
-  a.status=status;
   a.kundenStatus=status;
-  const {id:_id,cid:_cid,...data}=a;
-  await api('/api/angebote/'+id,{method:'PUT',body:JSON.stringify({data})});
+  if(status==='green'&&!a.umgewandelt){
+    await convertAngebotToInvoice(a);
+    a.umgewandelt=true;
+  }
   reloadAngeboteSection(cid);
 }
 
-async function deleteAngebot(id,cid){
+async function convertAngebotToInvoice(a){
+  const payload={cid:a.cid,vid:a.vehicleId,date:a.datum,type:kategorieToInvoiceType(a.kategorie),desc:a.beschreibung,amount:a.betrag,status:'open',nr:nextInvoiceNr(),fromAngebot:true};
+  const res=await api('/api/invoices?company_id='+a.cid,{method:'POST',body:JSON.stringify(payload)});
+  if(res&&res.ok){const saved=await res.json();state.invoices.push(saved);}
+}
+
+function saveAdminNachricht(id,cid){
+  const a=state.angebote.find(x=>x.id===id);
+  if(!a)return;
+  const el=document.getElementById('an-'+id);
+  if(el)a.adminNachricht=el.value.trim();
+  saveAngebote();
+  reloadAngeboteSection(cid);
+}
+
+function saveKundenNachricht(id,cid){
+  const a=state.angebote.find(x=>x.id===id);
+  if(!a)return;
+  const el=document.getElementById('kn-'+id);
+  if(el)a.kundenNachricht=el.value.trim();
+  saveAngebote();
+  reloadAngeboteSection(cid);
+}
+
+function deleteAngebot(id,cid){
   if(!confirm('Angebot wirklich löschen?\nDiese Aktion kann nicht rückgängig gemacht werden.'))return;
-  const res=await api('/api/angebote/'+id,{method:'DELETE'});
-  if(res&&res.ok){state.angebote=state.angebote.filter(a=>a.id!==id);}
+  state.angebote=state.angebote.filter(a=>a.id!==id);
+  saveAngebote();
   reloadAngeboteSection(cid);
 }
 
-function openAddAngebotModal(cid){
+function openAddAngebotModal(cid,editId){
+  const vehicles=state.vehicles.filter(v=>v.cid===cid);
+  if(!vehicles.length){alert('Keine Fahrzeuge für diese Firma gefunden.');return;}
+  const edit=editId?state.angebote.find(a=>a.id===editId):null;
+  const vOptions=vehicles.map(v=>`<option value="${v.id}" ${edit&&edit.vehicleId===v.id?'selected':''}>${v.plate} · ${v.make} ${v.model}</option>`).join('');
+  const kats=['Werkstattreparatur','Aufbereitung','Reifenwechsel','Service'];
+  const kOptions=kats.map(k=>`<option value="${k}" ${edit&&edit.kategorie===k?'selected':''}>${k}</option>`).join('');
   const today=new Date().toISOString().slice(0,10);
-  const html=`<div class="modal" style="width:440px;max-width:94vw">
-    <div class="modal-title">Angebot hinzufügen <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
-    <div class="form-group"><label class="form-label">Titel *</label><input class="form-input" id="na-titel" placeholder="z. B. Reifenwechsel Herbst 2026"></div>
-    <div class="form-group"><label class="form-label">Beschreibung</label><input class="form-input" id="na-desc" placeholder="Optional"></div>
+  const html=`<div class="modal" style="width:480px;max-width:94vw">
+    <div class="modal-title">${edit?'Angebot bearbeiten':'Angebot hinzufügen'} <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
+    <div class="form-group"><label class="form-label">Fahrzeug *</label><select class="form-input" id="na-vid">${vOptions}</select></div>
+    <div class="form-group"><label class="form-label">Kategorie *</label><select class="form-input" id="na-kat">${kOptions}</select></div>
+    <div class="form-group"><label class="form-label">Beschreibung *</label><input class="form-input" id="na-desc" value="${edit?calEscAttr(edit.beschreibung):''}" placeholder="z. B. Bremsscheiben &amp; Beläge Vorderachse"></div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Datum *</label><input class="form-input" type="date" id="na-date" value="${today}"></div>
-      <div class="form-group"><label class="form-label">Betrag in € *</label><input class="form-input" type="number" id="na-amount" min="0.01" step="0.01" placeholder="0,00"></div>
+      <div class="form-group"><label class="form-label">Datum *</label><input class="form-input" type="date" id="na-date" value="${edit?edit.datum:today}"></div>
+      <div class="form-group"><label class="form-label">Betrag in € *</label><input class="form-input" type="number" id="na-amount" min="0.01" step="0.01" value="${edit?edit.betrag:''}" placeholder="0,00"></div>
     </div>
     <div id="na-err" style="font-size:11px;color:var(--red);min-height:16px;margin-bottom:2px"></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal()">Abbrechen</button>
-      <button class="btn btn-gold" onclick="saveNewAngebot('${cid}')"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button>
+      <button class="btn btn-gold" onclick="saveNewAngebot('${cid}'${edit?",'"+edit.id+"'":''})"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button>
     </div>
   </div>`;
   document.getElementById('modal-container').innerHTML=`<div class="modal-overlay" onclick="if(event.target===this)closeModal()">${html}</div>`;
 }
 
-async function saveNewAngebot(cid){
-  const titel=((document.getElementById('na-titel')||{}).value||'').trim();
-  const beschreibung=((document.getElementById('na-desc')||{}).value||'').trim();
-  const datum=(document.getElementById('na-date')||{}).value||'';
+function saveNewAngebot(cid,editId){
+  const vid=(document.getElementById('na-vid')||{}).value||'';
+  const kat=(document.getElementById('na-kat')||{}).value||'';
+  const desc=((document.getElementById('na-desc')||{}).value||'').trim();
+  const date=(document.getElementById('na-date')||{}).value||'';
   const amtRaw=parseFloat((document.getElementById('na-amount')||{}).value||'');
   const errEl=document.getElementById('na-err');
-  if(!titel||!datum||isNaN(amtRaw)||amtRaw<=0){
-    if(errEl)errEl.textContent='Bitte Titel, Datum und Betrag ausfüllen.';
+  if(!vid||!kat||!desc||!date||isNaN(amtRaw)||amtRaw<=0){
+    if(errEl)errEl.textContent='Bitte alle Pflichtfelder korrekt ausfüllen.';
     return;
   }
   const betrag=Math.round(amtRaw*100)/100;
-  const data={titel,beschreibung,datum,betrag,status:'offen',kundenStatus:null};
-  const res=await api('/api/angebote',{method:'POST',body:JSON.stringify({company_id:cid,data})});
-  if(res&&res.ok){const saved=await res.json();state.angebote.push({...(saved.data||{}),id:saved.id,cid:saved.company_id});}
-  else{if(errEl)errEl.textContent='Fehler beim Speichern.';return;}
-  closeModal();reloadAngeboteSection(cid);
+  const v=state.vehicles.find(x=>x.id===vid);
+  const plate=v?v.plate:'—';
+  if(editId){
+    const a=state.angebote.find(x=>x.id===editId);
+    if(a){a.vehicleId=vid;a.plate=plate;a.kategorie=kat;a.beschreibung=desc;a.datum=date;a.betrag=betrag;}
+  }else{
+    state.angebote.push({id:'ang'+Date.now(),cid,vehicleId:vid,plate,kategorie:kat,beschreibung:desc,betrag,datum:date,adminNachricht:'',kundenStatus:null,kundenNachricht:'',umgewandelt:false,terminDatum:'',terminUhrzeit:'',terminNachricht:''});
+  }
+  saveAngebote();
+  closeModal();
+  reloadAngeboteSection(cid);
+}
+
+function angebotNummer(a){
+  return 'AN-'+String(a.datum||'2026').substring(0,4)+'-'+String(a.id.replace(/\D/g,'')).slice(-4).padStart(4,'0');
+}
+
+function buildAngebotHTML(angId){
+  const a=state.angebote.find(x=>x.id===angId);
+  if(!a)return'';
+  const v=state.vehicles.find(vv=>vv.id===a.vehicleId);
+  const company=state.companies.find(c=>c.id===a.cid);
+  const fmt=n=>n.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+  const netAmt=a.betrag;
+  const vatAmt=Math.round(netAmt*19)/100;
+  const grossAmt=Math.round((netAmt+vatAmt)*100)/100;
+  const angNum=angebotNummer(a);
+  const vehicleLine=v?v.plate+' · '+v.make+' '+v.model+(v.year?' (BJ '+v.year+')':''):a.plate;
+  const addrMap={c1:'Gutleutstraße 12<br>60329 Frankfurt am Main',c2:'Hafenstraße 55<br>20457 Hamburg'};
+  const addr=addrMap[a.cid]||'Adresse nicht hinterlegt';
+  const stampLabel=a.kundenStatus==='green'?'FREIGEGEBEN':a.kundenStatus==='red'?'ABGELEHNT':a.kundenStatus==='yellow'?'IN PRÜFUNG':'ANGEBOT';
+  const stampColor=a.kundenStatus==='green'?'#2A7A4A':a.kundenStatus==='red'?'#CC2222':a.kundenStatus==='yellow'?'#B07800':'#C9A84C';
+  const stamp=`<div style="position:absolute;top:38px;right:38px;border:3px solid ${stampColor};border-radius:4px;padding:6px 16px;color:${stampColor};font-size:17px;font-weight:700;letter-spacing:.12em;transform:rotate(-12deg);opacity:.8;pointer-events:none">${stampLabel}</div>`;
+  return `<div style="position:relative;font-family:'Inter',system-ui,sans-serif;color:#1A1A1A;font-size:13px;line-height:1.6">
+    ${stamp}
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:36px;padding-bottom:20px;border-bottom:2px solid #1A1A1A">
+      <div>
+        <div style="font-size:21px;font-weight:700;letter-spacing:.07em">GOLDPARK MANAGEMENT</div>
+        <div style="font-size:10px;color:#888;letter-spacing:.14em;text-transform:uppercase;margin-top:3px">Fuhrparkmanagement</div>
+        <div style="font-size:11px;color:#666;margin-top:12px;line-height:1.8">Gutleutstraße 12 · 60329 Frankfurt am Main<br>Tel: 069 900 123 · info@goldpark.de</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:24px;font-weight:700;color:#C9A84C;letter-spacing:.03em">ANGEBOT</div>
+        <div style="font-size:12px;color:#555;margin-top:8px;line-height:1.9">Angebot-Nr. <strong style="color:#1A1A1A">${angNum}</strong><br>Datum: <strong style="color:#1A1A1A">${a.datum}</strong></div>
+      </div>
+    </div>
+    <div style="margin-bottom:36px">
+      <div style="font-size:9px;color:#AAA;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;border-bottom:0.5px solid #E8E8E8;padding-bottom:4px">Angebotsempfänger</div>
+      <div style="font-weight:600;font-size:14px;margin-top:8px">${company?company.name:'—'}</div>
+      <div style="color:#555;font-size:12px;margin-top:5px;line-height:1.8">${addr}<br>${company?'z. Hd. '+company.contact:''}<br>${company?company.phone+' · '+company.email:''}</div>
+    </div>
+    <div style="background:#F7F7F7;border:1px solid #E8E8E8;border-radius:6px;padding:10px 16px;margin-bottom:28px">
+      <div style="font-size:9px;color:#AAA;text-transform:uppercase;letter-spacing:.1em">Fahrzeug</div>
+      <div style="font-weight:600;font-size:12px;margin-top:4px">${vehicleLine}</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:24px">
+      <thead><tr style="background:#1A1A1A;color:#FFF">
+        <th style="text-align:left;padding:9px 14px;font-weight:600;letter-spacing:.05em;font-size:11px">Pos.</th>
+        <th style="text-align:left;padding:9px 14px;font-weight:600;letter-spacing:.05em;font-size:11px">Kategorie</th>
+        <th style="text-align:left;padding:9px 14px;font-weight:600;letter-spacing:.05em;font-size:11px">Beschreibung</th>
+        <th style="text-align:right;padding:9px 14px;font-weight:600;letter-spacing:.05em;font-size:11px">Betrag (netto)</th>
+      </tr></thead>
+      <tbody><tr>
+        <td style="padding:12px 14px;color:#999;border-bottom:1px solid #E8E8E8">01</td>
+        <td style="padding:12px 14px;font-weight:500;border-bottom:1px solid #E8E8E8">${escHtml(a.kategorie)}</td>
+        <td style="padding:12px 14px;color:#555;border-bottom:1px solid #E8E8E8">${escHtml(a.beschreibung)}</td>
+        <td style="padding:12px 14px;text-align:right;font-weight:500;border-bottom:1px solid #E8E8E8;white-space:nowrap">${fmt(netAmt)}</td>
+      </tr></tbody>
+    </table>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:32px">
+      <div style="width:280px">
+        <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:0.5px solid #E8E8E8;font-size:12px"><span style="color:#666">Nettobetrag</span><span>${fmt(netAmt)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:0.5px solid #E8E8E8;font-size:12px"><span style="color:#666">MwSt. 19 %</span><span>${fmt(vatAmt)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:10px 0 4px;font-size:15px;font-weight:700;border-top:2px solid #1A1A1A;margin-top:2px"><span>Angebotssumme</span><span>${fmt(grossAmt)}</span></div>
+      </div>
+    </div>
+    <div style="background:#FFF8EE;border:1px solid #E8DFC0;border-radius:6px;padding:10px 16px;font-size:12px;display:flex;align-items:center;gap:9px;margin-bottom:36px">
+      <span style="font-size:17px;color:#B07800">📄</span>
+      <span style="font-weight:600;color:#B07800">Dieses Angebot ist unverbindlich und 14 Tage gültig. Bitte geben Sie das Angebot im Kundenportal frei.</span>
+    </div>
+    <div style="border-top:1px solid #E0E0E0;padding-top:14px;font-size:10px;color:#BBB;text-align:center;line-height:2">
+      Goldpark Management GmbH &nbsp;·&nbsp; Gutleutstraße 12 &nbsp;·&nbsp; 60329 Frankfurt am Main<br>
+      USt-IdNr.: DE 123 456 789 &nbsp;·&nbsp; IBAN: DE89 5005 0201 0200 1234 56 &nbsp;·&nbsp; BIC: BELADEBEXXX &nbsp;·&nbsp; Amtsgericht Frankfurt HRB 00000
+    </div>
+  </div>`;
+}
+
+function openAngebotPDFModal(angId){
+  const a=state.angebote.find(x=>x.id===angId);
+  if(!a)return;
+  const angNum=angebotNummer(a);
+  document.getElementById('angebot-pdf-modal-ol')?.remove();
+  const ol=document.createElement('div');
+  ol.id='angebot-pdf-modal-ol';
+  ol.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.68);display:flex;align-items:center;justify-content:center;z-index:600';
+  ol.innerHTML=`<div style="background:#FFF;border-radius:10px;width:720px;max-width:96vw;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 48px rgba(0,0,0,.25)">
+    <div style="padding:13px 18px;border-bottom:1px solid #E0E0E0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:#FAFAFA">
+      <div style="display:flex;align-items:center;gap:8px">
+        <i class="ti ti-file-text" style="font-size:18px;color:#C9A84C" aria-hidden="true"></i>
+        <span style="font-size:13px;font-weight:600;color:#1A1A1A">Angebotsvorschau — ${angNum}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="printAngebot('${angId}')" style="display:inline-flex;align-items:center;gap:5px;padding:6px 13px;background:#1A1A1A;color:#FFF;border:none;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:var(--font-sans)"><i class="ti ti-printer" style="font-size:13px" aria-hidden="true"></i> Drucken</button>
+        <button onclick="document.getElementById('angebot-pdf-modal-ol').remove()" style="background:none;border:none;cursor:pointer;font-size:22px;color:#999;padding:0 5px;line-height:1;font-family:var(--font-sans)" onmouseenter="this.style.color='#333'" onmouseleave="this.style.color='#999'">×</button>
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:32px 40px;background:#E8E8E8">
+      <div style="background:#FFF;padding:52px;box-shadow:0 2px 18px rgba(0,0,0,.13);min-height:760px">
+        ${buildAngebotHTML(angId)}
+      </div>
+    </div>
+  </div>`;
+  ol.addEventListener('click',e=>{if(e.target===ol)ol.remove();});
+  document.body.appendChild(ol);
+}
+
+function printAngebot(angId){
+  const body=buildAngebotHTML(angId);
+  const w=window.open('','_blank','width=860,height=960');
+  w.document.write('<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><title>Angebot</title>'
+    +'<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/tabler-icons.min.css">'
+    +'<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">'
+    +'<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:\'Inter\',system-ui,sans-serif;background:#FFF;color:#1A1A1A;padding:52px 64px;max-width:800px;margin:0 auto}@media print{@page{size:A4;margin:20mm}body{padding:0}}</style>'
+    +'</head><body>'+body+'</body></html>');
+  w.document.close();
+  setTimeout(()=>w.print(),600);
 }
 
 function renderInsuranceHTML(cid){
@@ -2085,6 +2668,135 @@ async function saveMasterCalAppointment(){
   closeModal();renderMain();refreshMasterCalendarIfOpen();
 }
 
+// ============ ANGEBOT ↔ KALENDER: TERMINWAHL (KUNDENPORTAL) ============
+let terminModalState={angId:null,cid:null,year:2026,month:5,selDate:'',selTime:'',msg:''};
+function openAngebotTerminModal(angId){
+  const a=state.angebote.find(x=>x.id===angId);if(!a)return;
+  let y=2026,m=5;
+  const base=a.terminDatum||a.datum;
+  if(base){const d=new Date(base);if(!isNaN(d)){y=d.getFullYear();m=d.getMonth();}}
+  terminModalState={angId:angId,cid:a.cid,year:y,month:m,selDate:a.terminDatum||'',selTime:a.terminUhrzeit||'',msg:a.terminNachricht||''};
+  renderTerminModal();
+}
+function terminCaptureInputs(){
+  const msgEl=document.getElementById('tm-msg');if(msgEl)terminModalState.msg=msgEl.value;
+  const tEl=document.getElementById('tm-time');if(tEl)terminModalState.selTime=tEl.value;
+}
+function terminShiftMonth(delta){
+  terminCaptureInputs();
+  let m=terminModalState.month+delta,y=terminModalState.year;
+  if(m<0){m=11;y--;}if(m>11){m=0;y++;}
+  terminModalState.month=m;terminModalState.year=y;
+  renderTerminModal();
+}
+function terminSelectDay(ds){
+  terminCaptureInputs();
+  if(isDayBlocked(terminModalState.cid,ds))return;
+  terminModalState.selDate=ds;
+  if(terminModalState.selTime&&isSlotBlocked(terminModalState.cid,ds,terminModalState.selTime))terminModalState.selTime='';
+  renderTerminModal();
+}
+function renderTerminModal(){
+  const st=terminModalState;
+  const a=state.angebote.find(x=>x.id===st.angId);if(!a){closeModal();return;}
+  const veh=state.vehicles.find(v=>v.id===a.vehicleId);
+  const name=veh?`${veh.make} ${veh.model}`:'Fahrzeug';
+  const pad=n=>String(n).padStart(2,'0');
+  const monthKey=`${st.year}-${pad(st.month+1)}`;
+  const daysInMonth=new Date(st.year,st.month+1,0).getDate();
+  let startWd=new Date(st.year,st.month,1).getDay();startWd=(startWd+6)%7;
+  let cells='';
+  for(let i=0;i<startWd;i++)cells+=`<div class="tm-cell tm-empty"></div>`;
+  for(let d=1;d<=daysInMonth;d++){
+    const ds=`${monthKey}-${pad(d)}`;
+    const blocked=isDayBlocked(st.cid,ds);
+    const sel=st.selDate===ds;
+    const cls=['tm-cell',blocked?'tm-blocked':'',sel?'tm-sel':''].filter(Boolean).join(' ');
+    const oc=blocked?'':` onclick="terminSelectDay('${ds}')"`;
+    cells+=`<div class="${cls}"${oc}><div class="tm-daynum">${d}</div>${blocked?'<div class="tm-na">Nicht<br>verfügbar</div>':''}</div>`;
+  }
+  const weekhead=`<div class="tm-weekhead">${CAL_WD.map((w,i)=>`<div class="tm-wd">${w}</div>`).join('')}</div>`;
+  // Uhrzeit-Dropdown für gewählten Tag
+  const slots=terminSlots();
+  let timeSelect;
+  if(st.selDate){
+    let opts='<option value="">— Uhrzeit wählen —</option>'+slots.map(s=>{
+      const b=isSlotBlocked(st.cid,st.selDate,s);
+      return `<option value="${s}" ${b?'disabled':''} ${st.selTime===s&&!b?'selected':''}>${s}${b?'  —  Nicht verfügbar':' Uhr'}</option>`;
+    }).join('');
+    const anyFree=slots.some(s=>!isSlotBlocked(st.cid,st.selDate,s));
+    timeSelect=`<select class="form-input" id="tm-time">${opts}</select>
+      ${anyFree?'':'<div style="font-size:11px;color:var(--red);margin-top:5px">An diesem Tag sind alle Uhrzeiten gesperrt.</div>'}`;
+  }else{
+    timeSelect=`<select class="form-input" id="tm-time" disabled><option>Bitte zuerst einen Tag wählen</option></select>`;
+  }
+  const selDateStr=st.selDate?new Date(st.selDate).toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'}):'—';
+  const html=`<div class="modal" style="width:440px;max-width:95vw">
+    <div class="modal-title">📅 Termin wählen <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
+    <div style="background:#F7F7F7;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--text2)">
+      <div style="font-size:13px;font-weight:600;color:var(--text)">${name} <span style="font-family:var(--font-mono);font-size:11px;color:var(--text3)">${a.plate}</span></div>
+      <div style="margin-top:2px">${escHtml(a.kategorie)} · ${escHtml(a.beschreibung)}</div>
+    </div>
+    <div class="tm-navbar">
+      <button class="tm-navbtn" type="button" onclick="terminShiftMonth(-1)" aria-label="Vorheriger Monat">&lsaquo;</button>
+      <div class="tm-month">${CAL_MONTHS[st.month]} ${st.year}</div>
+      <button class="tm-navbtn" type="button" onclick="terminShiftMonth(1)" aria-label="Nächster Monat">&rsaquo;</button>
+    </div>
+    <div class="tm-cal-wrap">${weekhead}<div class="tm-grid">${cells}</div></div>
+    <div class="tm-legend">
+      <span><span class="tm-legdot" style="background:var(--gold)"></span> Gewählt</span>
+      <span><span class="tm-legdot" style="background:repeating-linear-gradient(45deg,#FBEAEA,#FBEAEA 3px,#F7D7D7 3px,#F7D7D7 6px)"></span> Nicht verfügbar (gesperrt)</span>
+    </div>
+    <div class="form-group" style="margin-top:12px"><label class="form-label">Gewählter Tag</label>
+      <div style="font-size:13px;font-weight:600;color:${st.selDate?'var(--text)':'var(--text3)'}">${selDateStr}</div>
+    </div>
+    <div class="form-group"><label class="form-label">Uhrzeit *</label>${timeSelect}</div>
+    <div class="form-group"><label class="form-label">Nachricht an Goldpark</label><textarea class="form-input" id="tm-msg" rows="3" placeholder="z. B. Fahrzeug wird morgens gebracht …">${escHtml(st.msg||'')}</textarea></div>
+    <div id="tm-err" style="font-size:11px;color:var(--red);min-height:15px;margin-bottom:2px"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">Abbrechen</button>
+      <button class="btn btn-gold" onclick="saveAngebotTermin()"><i class="ti ti-check" aria-hidden="true"></i> Termin speichern</button>
+    </div>
+  </div>`;
+  document.getElementById('modal-container').innerHTML=`<div class="modal-overlay" onclick="if(event.target===this)closeModal()">${html}</div>`;
+}
+function saveAngebotTermin(){
+  terminCaptureInputs();
+  const st=terminModalState;
+  const a=state.angebote.find(x=>x.id===st.angId);if(!a)return;
+  const errEl=document.getElementById('tm-err');
+  const setErr=t=>{if(errEl)errEl.textContent=t;};
+  if(!st.selDate){setErr('Bitte einen Tag wählen.');return;}
+  if(isDayBlocked(st.cid,st.selDate)){setErr('Dieser Tag ist nicht verfügbar.');return;}
+  if(!st.selTime){setErr('Bitte eine Uhrzeit wählen.');return;}
+  if(isSlotBlocked(st.cid,st.selDate,st.selTime)){setErr('Diese Uhrzeit ist nicht verfügbar.');return;}
+  a.terminDatum=st.selDate;
+  a.terminUhrzeit=st.selTime;
+  a.terminNachricht=(st.msg||'').trim();
+  saveAngebote();
+  closeModal();
+  reloadAngeboteSection(st.cid);
+}
+function openAngebotTerminInfo(angId){
+  const a=state.angebote.find(x=>x.id===angId);if(!a)return;
+  const veh=state.vehicles.find(v=>v.id===a.vehicleId);
+  const name=veh?`${veh.make} ${veh.model}`:'Fahrzeug';
+  const dateStr=a.terminDatum?new Date(a.terminDatum).toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'}):'—';
+  const html=`<div class="modal" style="width:400px;max-width:94vw">
+    <div class="modal-title">🏷️ Terminiertes Angebot <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
+    <div style="background:#FCF8EC;border:1px solid #E8DFC0;border-radius:8px;padding:11px 13px;font-size:12px;color:var(--text2)">
+      <div style="font-size:13px;font-weight:700;color:var(--text)">📅 ${dateStr} · ${a.terminUhrzeit||''} Uhr</div>
+      <div style="margin-top:6px;font-weight:600;color:var(--text)">${name} <span style="font-family:var(--font-mono);font-size:11px;color:var(--text3)">${a.plate}</span></div>
+      <div style="margin-top:3px"><strong>Kategorie:</strong> ${escHtml(a.kategorie)}</div>
+      <div style="margin-top:2px"><strong>Leistung:</strong> ${escHtml(a.beschreibung)}</div>
+      <div style="margin-top:2px"><strong>Betrag:</strong> ${a.betrag.toLocaleString('de-DE')} €</div>
+      ${a.terminNachricht?`<div style="margin-top:8px;padding-top:8px;border-top:1px solid #E8DFC0"><strong>Nachricht vom Kunden:</strong><br>„${escHtml(a.terminNachricht)}“</div>`:''}
+    </div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">Schließen</button></div>
+  </div>`;
+  document.getElementById('modal-container').innerHTML=`<div class="modal-overlay" onclick="if(event.target===this)closeModal()">${html}</div>`;
+}
+
 // ============ ADMIN: TAGE / ZEITSLOTS BLOCKIEREN ============
 function openBlockModal(cid,presetDate){
   if(!isAdmin())return;
@@ -2471,7 +3183,7 @@ function renderVehicleDetail(){
   if(!panel||!state.selectedVehicle)return;
   const v=state.vehicles.find(x=>x.id===state.selectedVehicle);
   if(!v){panel.innerHTML='';return;}
-  const tabs=[{id:'reminders',label:'Erinnerungen',icon:'ti-bell'},{id:'damages',label:'Schäden',icon:'ti-tools'},{id:'info',label:'Fahrzeuginfo',icon:'ti-info-circle'}];
+  const tabs=[{id:'reminders',label:'Erinnerungen',icon:'ti-bell'},{id:'damages',label:'Schäden',icon:'ti-tools'},{id:'info',label:'Fahrzeuginfo',icon:'ti-info-circle'},{id:'dokumente',label:'Dokumente',icon:'ti-files'}];
   const tabsHtml=tabs.map(t=>`<div class="dtab${state.activeTab===t.id?' active':''}" onclick="selectTab('${t.id}')"><i class="ti ${t.icon}" style="font-size:12px;margin-right:3px" aria-hidden="true"></i>${t.label}</div>`).join('');
   let content='';
   if(state.activeTab==='reminders'){
@@ -2559,9 +3271,6 @@ function openModal(type,id=''){
       <div class="form-group"><label class="form-label">Firmenname *</label><input class="form-input" id="f-name" placeholder="Mustermann GmbH"></div>
       <div class="form-group"><label class="form-label">Ansprechpartner</label><input class="form-input" id="f-contact"></div>
       <div class="form-row"><div class="form-group"><label class="form-label">Telefon</label><input class="form-input" id="f-phone"></div><div class="form-group"><label class="form-label">E-Mail</label><input class="form-input" id="f-email"></div></div>
-      <div style="font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin:12px 0 7px">Kundenzugang — optional</div>
-      <div class="form-row"><div class="form-group"><label class="form-label">Login-E-Mail</label><input class="form-input" id="f-login-email" type="email" placeholder="kunde@firma.de"></div><div class="form-group"><label class="form-label">Passwort (min. 8 Zeichen)</label><input class="form-input" id="f-login-pass" type="password" placeholder="••••••••"></div></div>
-      <div id="f-err" style="font-size:11px;color:var(--red);min-height:16px;margin-bottom:2px"></div>
       <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" onclick="saveCompany()"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button></div></div>`;
   } else if(type==='editCompany'){
     const c=state.companies.find(x=>x.id===id);
@@ -2569,10 +3278,6 @@ function openModal(type,id=''){
       <div class="form-group"><label class="form-label">Firmenname *</label><input class="form-input" id="f-name" value="${c.name}"></div>
       <div class="form-group"><label class="form-label">Ansprechpartner</label><input class="form-input" id="f-contact" value="${c.contact}"></div>
       <div class="form-row"><div class="form-group"><label class="form-label">Telefon</label><input class="form-input" id="f-phone" value="${c.phone}"></div><div class="form-group"><label class="form-label">E-Mail</label><input class="form-input" id="f-email" value="${c.email}"></div></div>
-      <div style="font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 7px">Kundenzugang</div>
-      <div class="form-row"><div class="form-group"><label class="form-label">E-Mail</label><input class="form-input" id="ec-login-email" type="email" placeholder="kunde@firma.de"></div><div class="form-group"><label class="form-label">Neues Passwort (min. 8 Zeichen)</label><input class="form-input" id="ec-login-pass" type="password" placeholder="••••••••"></div></div>
-      <div id="ec-kz-msg" style="font-size:11px;min-height:16px;margin-bottom:4px"></div>
-      <button class="btn btn-outline" onclick="saveKundenzugang('${id}')" style="margin-bottom:12px">Zugang anlegen / Passwort ändern</button>
       <div class="modal-actions"><button class="btn" style="color:var(--red);border:0.5px solid rgba(224,85,85,.3);background:var(--red-bg)" onclick="deleteCompany('${id}')"><i class="ti ti-trash" aria-hidden="true"></i></button><button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" onclick="saveCompany('${id}')"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button></div></div>`;
   } else if(type==='vehicle'){
     html=`<div class="modal"><div class="modal-title">Fahrzeug hinzufügen <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
@@ -2648,29 +3353,25 @@ function openModal(type,id=''){
     const cid=id;
     html=`<div class="modal"><div class="modal-title">Fahrer hinzufügen <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
       <div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="dr-name" placeholder="Max Mustermann"></div>
-      <div class="form-row"><div class="form-group"><label class="form-label">Führerscheinklassen</label><input class="form-input" id="dr-class" placeholder="z.B. B, BE, C, CE"></div><div class="form-group"><label class="form-label">Führerscheinnummer</label><input class="form-input" id="dr-nr" placeholder="z.B. B072RRE2I10"></div></div>
+      <div class="form-group"><label class="form-label">Führerscheinklasse</label><input class="form-input" id="dr-class" placeholder="z.B. B, BE, C, CE"></div>
       <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="dr-status" onchange="toggleDriverFields()"><option value="checked">✓ Kontrolliert</option><option value="pending" selected>⏳ Ausstehend</option><option value="invalid">✗ Ungültig / abgegeben</option></select></div>
-      <div id="dr-check-wrap" style="display:none"><div class="form-group"><label class="form-label">Letzte Kontrolle</label><input class="form-input" id="dr-lastcheck" type="date"></div></div>
+      <div id="dr-check-wrap" style="display:none"><div class="form-group"><label class="form-label">Datum der Kontrolle</label><input class="form-input" id="dr-lastcheck" type="date"></div></div>
       <div id="dr-reason-wrap" style="display:none"><div class="form-group"><label class="form-label">Grund</label><input class="form-input" id="dr-reason" placeholder="z.B. Führerschein abgegeben"></div></div>
-      <div class="form-group"><label class="form-label">Nächste Kontrolle</label><input class="form-input" id="dr-nextcheck" type="date"></div>
-      <div class="form-group"><label class="form-label">Notiz</label><input class="form-input" id="dr-notiz" placeholder="Optionale Notiz"></div>
       <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" onclick="saveDriver('${cid}')"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button></div>
     </div>`;
   } else if(type==='editDriver'){
     const dr=state.drivers.find(x=>x.id===id);
     if(!dr){closeModal();return;}
     html=`<div class="modal"><div class="modal-title">Fahrer bearbeiten <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
-      <div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="dr-name" value="${escHtml(dr.name)}"></div>
-      <div class="form-row"><div class="form-group"><label class="form-label">Führerscheinklassen</label><input class="form-input" id="dr-class" value="${escHtml(dr.licenseClass||'')}"></div><div class="form-group"><label class="form-label">Führerscheinnummer</label><input class="form-input" id="dr-nr" value="${escHtml(dr.licenseNr||'')}"></div></div>
+      <div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="dr-name" value="${dr.name}"></div>
+      <div class="form-group"><label class="form-label">Führerscheinklasse</label><input class="form-input" id="dr-class" value="${dr.licenseClass||''}"></div>
       <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="dr-status" onchange="toggleDriverFields()">
         <option value="checked"${dr.status==='checked'?' selected':''}>✓ Kontrolliert</option>
         <option value="pending"${dr.status==='pending'?' selected':''}>⏳ Ausstehend</option>
         <option value="invalid"${dr.status==='invalid'?' selected':''}>✗ Ungültig / abgegeben</option>
       </select></div>
-      <div id="dr-check-wrap" style="display:${dr.status==='checked'?'':'none'}"><div class="form-group"><label class="form-label">Letzte Kontrolle</label><input class="form-input" id="dr-lastcheck" type="date" value="${dr.lastCheck||''}"></div></div>
-      <div id="dr-reason-wrap" style="display:${dr.status==='invalid'?'':'none'}"><div class="form-group"><label class="form-label">Grund</label><input class="form-input" id="dr-reason" value="${escHtml(dr.reason||'')}"></div></div>
-      <div class="form-group"><label class="form-label">Nächste Kontrolle</label><input class="form-input" id="dr-nextcheck" type="date" value="${dr.nextCheck||''}"></div>
-      <div class="form-group"><label class="form-label">Notiz</label><input class="form-input" id="dr-notiz" value="${escHtml(dr.notiz||'')}"></div>
+      <div id="dr-check-wrap" style="display:${dr.status==='checked'?'':'none'}"><div class="form-group"><label class="form-label">Datum der Kontrolle</label><input class="form-input" id="dr-lastcheck" type="date" value="${dr.lastCheck||''}"></div></div>
+      <div id="dr-reason-wrap" style="display:${dr.status==='invalid'?'':'none'}"><div class="form-group"><label class="form-label">Grund</label><input class="form-input" id="dr-reason" value="${dr.reason||''}"></div></div>
       <div class="modal-actions">
         <button class="btn" style="color:var(--red);border:0.5px solid rgba(224,85,85,.3);background:var(--red-bg)" onclick="deleteDriver('${dr.id}','${dr.cid}')"><i class="ti ti-trash" aria-hidden="true"></i></button>
         <button class="btn btn-outline" onclick="closeModal()">Abbrechen</button>
@@ -2827,36 +3528,20 @@ function toggleDriverFields(){
   if(cw)cw.style.display=s.value==='checked'?'':'none';
   if(rw)rw.style.display=s.value==='invalid'?'':'none';
 }
-async function saveDriver(cid,existingId=''){
-  const name=(document.getElementById('dr-name')||{value:''}).value.trim();
+function saveDriver(cid,existingId=''){
+  const name=document.getElementById('dr-name').value.trim();
   if(!name)return alert('Name erforderlich');
-  const status=(document.getElementById('dr-status')||{value:'pending'}).value;
-  const lastCheck=status==='checked'?(document.getElementById('dr-lastcheck')||{}).value||null:null;
-  const reason=status==='invalid'?((document.getElementById('dr-reason')||{}).value||'').trim():null;
-  const payload={
-    company_id:cid,
-    name,
-    licenseClass:(document.getElementById('dr-class')||{value:''}).value.trim()||null,
-    licenseNr:(document.getElementById('dr-nr')||{value:''}).value.trim()||null,
-    lastCheck:lastCheck||null,
-    nextCheck:(document.getElementById('dr-nextcheck')||{}).value||null,
-    status,
-    notiz:(document.getElementById('dr-notiz')||{value:''}).value.trim()||null,
-  };
-  if(reason)payload.reason=reason;
-  if(existingId){
-    const res=await api('/api/drivers/'+existingId,{method:'PUT',body:JSON.stringify(payload)});
-    if(res&&res.ok){const saved=await res.json();const dr=state.drivers.find(x=>x.id===existingId);if(dr)Object.assign(dr,saved);}
-  }else{
-    const res=await api('/api/drivers',{method:'POST',body:JSON.stringify(payload)});
-    if(res&&res.ok){const saved=await res.json();state.drivers.push(saved);}
-  }
+  const status=document.getElementById('dr-status').value;
+  const lastCheck=status==='checked'?(document.getElementById('dr-lastcheck')||{}).value||'':'';
+  const reason=status==='invalid'?((document.getElementById('dr-reason')||{}).value||'').trim():'';
+  const data={cid,name,licenseClass:document.getElementById('dr-class').value.trim(),status,lastCheck,reason};
+  if(existingId){const dr=state.drivers.find(x=>x.id===existingId);if(dr)Object.assign(dr,data);}
+  else state.drivers.push({id:'dr'+Date.now(),...data});
   closeModal();renderMain();openModal('driverLicense',cid);
 }
-async function deleteDriver(did,cid){
+function deleteDriver(did,cid){
   if(!confirm('Fahrer löschen?'))return;
-  const res=await api('/api/drivers/'+did,{method:'DELETE'});
-  if(res&&res.ok){state.drivers=state.drivers.filter(d=>d.id!==did);}
+  state.drivers=state.drivers.filter(d=>d.id!==did);
   closeModal();renderMain();openModal('driverLicense',cid);
 }
 function toggleWechselfahrer(){
@@ -2879,28 +3564,13 @@ async function saveCompany(existingId=''){
   const contact=document.getElementById('f-contact').value.trim();
   const phone=document.getElementById('f-phone').value.trim();
   const email=document.getElementById('f-email').value.trim();
-  const errEl=document.getElementById('f-err');
   if(existingId){
     const c=state.companies.find(x=>x.id===existingId);
     const res=await api('/api/companies/'+existingId,{method:'PUT',body:JSON.stringify({...c,name,contact,phone,email})});
     if(res&&res.ok){c.name=name;c.contact=contact;c.phone=phone;c.email=email;}
   }else{
-    const loginEmail=(document.getElementById('f-login-email')||{value:''}).value.trim();
-    const loginPass=(document.getElementById('f-login-pass')||{value:''}).value;
-    if((loginEmail||loginPass)&&(!loginEmail||!loginPass)){
-      if(errEl)errEl.textContent='Bitte Login-E-Mail und Passwort zusammen ausfüllen.';
-      return;
-    }
-    if(loginPass&&loginPass.length<8){
-      if(errEl)errEl.textContent='Passwort muss mindestens 8 Zeichen haben.';
-      return;
-    }
-    const body={name,contact,phone,email};
-    if(loginEmail&&loginPass){body.login_email=loginEmail;body.login_password=loginPass;}
-    const res=await api('/api/companies',{method:'POST',body:JSON.stringify(body)});
+    const res=await api('/api/companies',{method:'POST',body:JSON.stringify({name,contact,phone,email})});
     if(res&&res.ok){const saved=await res.json();state.companies.push(saved);}
-    else if(res&&res.status===409){if(errEl)errEl.textContent='Diese E-Mail-Adresse wird bereits verwendet.';return;}
-    else{if(errEl)errEl.textContent='Fehler beim Speichern.';return;}
   }
   closeModal();renderSidebar();if(state.selectedCompany)renderMain();
 }
@@ -2909,28 +3579,6 @@ async function deleteCompany(cid){
   const res=await api('/api/companies/'+cid,{method:'DELETE'});
   if(res&&res.ok){state.companies=state.companies.filter(c=>c.id!==cid);state.vehicles=state.vehicles.filter(v=>v.cid!==cid);state.selectedCompany=null;state.selectedVehicle=null;}
   closeModal();renderSidebar();renderMain();
-}
-async function saveKundenzugang(cid){
-  const emailEl=document.getElementById('ec-login-email');
-  const passEl=document.getElementById('ec-login-pass');
-  const msgEl=document.getElementById('ec-kz-msg');
-  const email=(emailEl||{value:''}).value.trim();
-  const password=(passEl||{value:''}).value;
-  if(!email&&!password)return;
-  if(!email||!password){if(msgEl){msgEl.style.color='var(--red)';msgEl.textContent='Bitte E-Mail und Passwort zusammen ausfüllen.';}return;}
-  if(password.length<8){if(msgEl){msgEl.style.color='var(--red)';msgEl.textContent='Passwort muss mindestens 8 Zeichen haben.';}return;}
-  const res=await api('/api/companies/'+cid+'/user',{method:'POST',body:JSON.stringify({email,password})});
-  if(res&&res.ok){
-    if(emailEl)emailEl.value='';
-    if(passEl)passEl.value='';
-    if(msgEl){msgEl.style.color='var(--green)';msgEl.textContent='Zugang gespeichert.';}
-  }else if(res&&res.status===409){
-    if(msgEl){msgEl.style.color='var(--red)';msgEl.textContent='Diese E-Mail-Adresse wird bereits verwendet.';}
-  }else{
-    let errText='Fehler beim Speichern.';
-    try{const d=await res.json();if(d&&d.error)errText=d.error;}catch(e){}
-    if(msgEl){msgEl.style.color='var(--red)';msgEl.textContent=errText;}
-  }
 }
 async function saveVehicle(cid){
   const make=document.getElementById('v-make').value.trim();const model=document.getElementById('v-model').value.trim();const plate=document.getElementById('v-plate').value.trim();
@@ -3369,6 +4017,7 @@ function ldResetSelection() {
 }
 
 // ===== FAHRTENBUCH =====
+function saveTrips(){}
 function _tripDateFmt(ds){return ds?ds.split('-').reverse().join('.'):'—';}
 function _tripDriverName(t){
   const dr=state.drivers.find(d=>d.id===t.driverId);
@@ -3487,34 +4136,6 @@ async function saveTripForm(cid){
   document.getElementById('trip-form-ol')?.remove();
   openFahrtenbuchModal(cid);
   renderMain();
-}
-
-function openAngebotTerminInfo(angId){
-  const a=state.angebote.find(x=>x.id===angId);if(!a)return;
-  const dateStr=a.terminDatum?new Date(a.terminDatum).toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'}):'—';
-  const html=`<div class="modal" style="width:380px;max-width:94vw">
-    <div class="modal-title">Termin <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
-    <div style="font-size:13px;color:var(--text);font-weight:600">${dateStr} · ${a.terminUhrzeit||''} Uhr</div>
-    <div style="font-size:12px;color:var(--text2);margin-top:6px">${escHtml(a.titel||a.beschreibung||'')}</div>
-    ${a.terminNachricht?`<div style="font-size:11px;color:var(--text3);margin-top:6px">${escHtml(a.terminNachricht)}</div>`:''}
-    <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">Schließen</button></div>
-  </div>`;
-  document.getElementById('modal-container').innerHTML=`<div class="modal-overlay" onclick="if(event.target===this)closeModal()">${html}</div>`;
-}
-
-// ===== MOBILE SIDEBAR =====
-function toggleSidebar(){
-  const sb=document.getElementById('sidebar');
-  const ov=document.getElementById('sidebar-overlay');
-  if(!sb)return;
-  const open=sb.classList.toggle('open');
-  if(ov)ov.classList.toggle('open',open);
-}
-function closeSidebar(){
-  const sb=document.getElementById('sidebar');
-  const ov=document.getElementById('sidebar-overlay');
-  if(sb)sb.classList.remove('open');
-  if(ov)ov.classList.remove('open');
 }
 
 // ===== BOOT =====
