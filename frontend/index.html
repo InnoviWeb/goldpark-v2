@@ -1,6 +1,7 @@
 ﻿<!DOCTYPE html>
 <html lang="de">
 <head>
+<!-- BUILD: supabase-fix-v2 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Goldpark Management</title>
@@ -446,13 +447,13 @@ select.form-input option{background:#FFF;color:#1A1A1A}
   [style*="display:flex;gap:12px;margin-bottom:14px"]{flex-direction:column!important}
 }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const API_BASE = 'https://goldpark-v2-production.up.railway.app';
 const SUPABASE_URL = 'https://xxwvppftmevchodvlsdt.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_m5nSPvO-5tqY9dqBp-NczQ_NAdsak8f';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 </script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
