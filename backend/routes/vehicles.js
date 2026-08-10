@@ -86,13 +86,14 @@ router.get('/:id', requireAuth, async (req, res) => {
 // POST /api/vehicles
 router.post('/', requireAuth, async (req, res) => {
   const {
-    company_id, make, model, plate, year, km, vin, besitzart, fuel,
+    make, model, plate, year, km, vin, besitzart, fuel,
     verfuegbar, nv_grund,
     service_date, service_interval, service_last_km,
     tuev_date, tires_date, tires_type,
     tire_size_fl, tire_size_fr, tire_size_rl, tire_size_rr,
     detailing_date, leasing_km_rest,
   } = req.body;
+  const company_id = req.body.company_id || req.query.company_id;
 
   if (req.user.role === 'kunde' && company_id !== req.user.company_id) {
     return res.status(403).json({ error: 'Zugriff verweigert' });
