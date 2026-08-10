@@ -472,7 +472,6 @@ const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       <input class="login-input" id="k-pass" type="password" placeholder="Passwort" autocomplete="current-password" onkeydown="if(event.key==='Enter')loginKunde()">
     </div>
     <button class="btn-login-gold" onclick="loginKunde()">Anmelden</button>
-    <div style="text-align:center;margin-top:8px;font-size:11px;color:rgba(255,255,255,0.28)">🔓 Testmodus — Login ohne Prüfung</div>
     <a class="forgot-link" onclick="alert('Bitte kontaktieren Sie uns unter info@goldpark.de')">Passwort vergessen?</a>
     <div class="login-error" id="k-error"></div>
   </div>
@@ -485,7 +484,7 @@ const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   <div class="admin-login-card">
     <div class="admin-section-title">Interner Zugang</div>
-    <input class="login-input-sm" id="a-email" type="email" value="admin@goldpark.de" autocomplete="username">
+    <input class="login-input-sm" id="a-email" type="email" placeholder="E-Mail" autocomplete="username">
     <input class="login-input-sm" id="a-pass" type="password" placeholder="Passwort" autocomplete="current-password" onkeydown="if(event.key==='Enter')loginAdmin()">
     <button class="btn-login-admin" onclick="loginAdmin()"><i class="ti ti-shield-lock" style="font-size:12px;margin-right:4px" aria-hidden="true"></i>Admin Zugang</button>
     <div class="admin-error" id="a-error"></div>
@@ -2910,7 +2909,9 @@ async function saveCompany(existingId=''){
   closeModal();renderSidebar();if(state.selectedCompany)renderMain();
 }
 async function deleteCompany(cid){
-  if(!confirm('Firma und alle Fahrzeuge löschen?'))return;
+  const co=state.companies.find(c=>c.id===cid);
+  const name=co?co.name:cid;
+  if(!confirm(`Firma "${name}" wirklich löschen? Alle Daten gehen verloren.`))return;
   const res=await api('/api/companies/'+cid,{method:'DELETE'});
   if(res&&res.ok){state.companies=state.companies.filter(c=>c.id!==cid);state.vehicles=state.vehicles.filter(v=>v.cid!==cid);state.selectedCompany=null;state.selectedVehicle=null;}
   closeModal();renderSidebar();renderMain();
@@ -2957,7 +2958,7 @@ async function saveVehicle(cid){
       sizeRR:document.getElementById('v-sizerr').value.trim()},
     detailing:{date:document.getElementById('v-detail').value||fb},gruppe:'Ohne Zuordnung',damages:[]};
   const res=await api('/api/vehicles?company_id='+cid,{method:'POST',body:JSON.stringify(payload)});
-  if(res&&res.ok){const saved=await res.json();state.vehicles.push(saved);}
+  if(res&&res.ok){const saved=await res.json();saved.damages=saved.damages||[];state.vehicles.push(saved);}
   closeModal();renderMain();
 }
 async function saveEditVehicle(vid){
