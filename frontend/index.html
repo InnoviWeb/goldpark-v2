@@ -661,7 +661,10 @@ const state = {
 state.collapsedGroups={};
 
 // ===== DATA LOADING =====
+let isLoading = false;
 async function loadAllData(role, cid) {
+  if(isLoading) return;
+  isLoading = true;
   state.companies=[];state.vehicles=[];state.invoices=[];state.angebote=[];
   state.insurances=[];state.leasings=[];state.trips=[];state.calendar=[];state.blockedSlots=[];state.drivers=[];
 
@@ -701,6 +704,7 @@ async function loadAllData(role, cid) {
     if (angRes && angRes.ok) { const d = await angRes.json(); state.angebote.push(...d.map(r=>({...(r.data||{}),id:r.id,cid:r.company_id}))); }
     if (drvRes && drvRes.ok) { const d = await drvRes.json(); state.drivers.push(...d); }
   }));
+  isLoading = false;
 }
 
 function terminSlots(){return['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'];}
@@ -798,7 +802,7 @@ function fleetStatusHTML(vehicles,cid){
     else{nvCount++;const g=v.nv_grund||'Sonstiges';nvGruende[g]=(nvGruende[g]||0)+1;}
     const dates=[daysUntil(v.service.date),daysUntil(v.tuev.date),daysUntil(v.tires.date),daysUntil(v.detailing.date)];
     if(dates.some(d=>d>=0&&d<=30)) service++;
-    if(v.damages.some(d=>d.status==='open'||d.status==='in-progress')) schaeden++;
+    if(v.damages.some(d=>d.status==='in-progress'||d.status==='werkstatt')) schaeden++;
   });
   const segs=[
     {label:'Verfügbar',count:verfuegbar,color:'#00C853'},
@@ -1299,14 +1303,14 @@ function renderMain(){
   if(state.activeSubMenu==='angebote'){main.innerHTML=hdr+renderAngeboteHTML(company.id);return;}
   if(state.activeSubMenu==='insurance'){main.innerHTML=hdr+renderInsuranceHTML(company.id);return;}
   if(state.activeSubMenu==='leasing'){main.innerHTML=hdr+renderLeasingHTML(company.id);return;}
-  if(state.activeSubMenu==='nv'){main.innerHTML=hdr+renderNVHTML(vehicles);return;}
+  if(state.activeSubMenu==='nv'){main.innerHTML=hdr+renderNVHTML(vehicles.filter(v=>v.verfuegbar===false));return;}
   if(state.activeSubMenu==='calendar'){main.style.overflow='auto';main.innerHTML=hdr+renderCalendarHTML(company.id);return;}
 
   const _dlClick=isAdmin()?`openModal('driverLicense','${company.id}')`:`openDriverLicenseReadonlyModal('${company.id}')`;
   const _vfClick=`openVehicleFleetModal('${company.id}')`;
   const _total=vehicles.length;
   const _verfuegbarCount=vehicles.filter(v=>v.verfuegbar!==false).length;
-  const _schaedenCount=vehicles.filter(v=>v.damages.some(d=>d.status==='open'||d.status==='in-progress')).length;
+  const _schaedenCount=vehicles.filter(v=>v.damages.some(d=>d.status==='in-progress'||d.status==='werkstatt')).length;
   const _nvCount=vehicles.filter(v=>v.verfuegbar===false).length;
   const _serviceCount=vehicles.filter(v=>{const dd=[daysUntil(v.service.date),daysUntil(v.tuev.date),daysUntil(v.tires.date),daysUntil(v.detailing.date)];return dd.some(d=>d>=0&&d<=30);}).length;
 
@@ -1645,13 +1649,15 @@ async function saveNewAngebot(cid){
 
 function renderInsuranceHTML(cid){
   const items=state.insurances.filter(i=>i.cid===cid);
-  if(!items.length) return '<div class="empty-state"><div class="empty-icon"><i class="ti ti-shield" aria-hidden="true"></i></div><div class="empty-text">Keine Versicherungsdaten vorhanden</div></div>';
+  const addBtn=isAdmin()?`<button class="btn btn-gold" onclick="openModal('addInsurance','${cid}')"><i class="ti ti-plus" aria-hidden="true"></i> Hinzufügen</button>`:'';
+  const header=`<div class="section-title" style="display:flex;align-items:center;justify-content:space-between"><span><i class="ti ti-shield" aria-hidden="true"></i> Versicherungsübersicht (${items.length})</span>${addBtn}</div>`;
+  if(!items.length) return header+'<div class="empty-state"><div class="empty-icon"><i class="ti ti-shield" aria-hidden="true"></i></div><div class="empty-text">Keine Versicherungsdaten vorhanden</div></div>';
   const rows=items.map(i=>{
     const v=state.vehicles.find(vv=>vv.id===i.vid);
     const plate=v?v.plate:'—';
     const dl=daysUntil(i.until);
     const expiryWarn=dl<60?`<span class="status-pill pill-open" style="margin-left:6px">in ${dl}d</span>`:'';
-    const monthlyTotal=items.reduce((s,x)=>s+x.monthly,0);
+    const editBtn=isAdmin()?`<td><button class="btn btn-outline" style="font-size:10px;padding:2px 8px;height:auto" onclick="openModal('editInsurance','${i.id}')"><i class="ti ti-pencil" aria-hidden="true"></i></button></td>`:'<td></td>';
     return `<tr>
       <td><span style="font-family:var(--font-mono);font-size:11px">${plate}</span><br><span style="font-size:10px;color:var(--text3)">${v?v.make+' '+v.model:''}</span></td>
       <td><span class="badge badge-ok" style="background:#F0F0F0;color:#555">${i.type}</span></td>
@@ -1659,13 +1665,15 @@ function renderInsuranceHTML(cid){
       <td style="font-family:var(--font-mono);font-size:11px;color:var(--text3)">${i.policy}</td>
       <td style="text-align:right;white-space:nowrap">${i.monthly} €/Mo.</td>
       <td style="white-space:nowrap">${i.until}${expiryWarn}</td>
+      ${editBtn}
     </tr>`;
   }).join('');
-  const monthlyTotal=items.reduce((s,i)=>s+i.monthly,0);
-  return `<div class="section-title"><i class="ti ti-shield" aria-hidden="true"></i> Versicherungsübersicht (${items.length} Fahrzeuge)</div>
+  const monthlyTotal=items.reduce((s,i)=>s+(parseFloat(i.monthly)||0),0);
+  const adminTh=isAdmin()?'<th></th>':'';
+  return `${header}
     <div class="detail-panel" style="padding:0;overflow:hidden">
       <table class="data-table">
-        <thead><tr><th>Fahrzeug</th><th>Versicherungsart</th><th>Versicherer</th><th>Policennr.</th><th style="text-align:right">Beitrag</th><th>Gültig bis</th></tr></thead>
+        <thead><tr><th>Fahrzeug</th><th>Versicherungsart</th><th>Versicherer</th><th>Policennr.</th><th style="text-align:right">Beitrag</th><th>Gültig bis</th>${adminTh}</tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
@@ -1674,11 +1682,14 @@ function renderInsuranceHTML(cid){
 
 function renderLeasingHTML(cid){
   const items=state.leasings.filter(l=>l.cid===cid);
-  if(!items.length) return '<div class="empty-state"><div class="empty-icon"><i class="ti ti-file-text" aria-hidden="true"></i></div><div class="empty-text">Keine Leasingverträge vorhanden</div></div>';
+  const addBtn=isAdmin()?`<button class="btn btn-gold" onclick="openModal('addLeasing','${cid}')"><i class="ti ti-plus" aria-hidden="true"></i> Hinzufügen</button>`:'';
+  const header=`<div class="section-title" style="display:flex;align-items:center;justify-content:space-between"><span><i class="ti ti-file-text" aria-hidden="true"></i> Leasingverträge (${items.length})</span>${addBtn}</div>`;
+  if(!items.length) return header+'<div class="empty-state"><div class="empty-icon"><i class="ti ti-file-text" aria-hidden="true"></i></div><div class="empty-text">Keine Leasingverträge vorhanden</div></div>';
   const rows=items.map(l=>{
     const v=state.vehicles.find(vv=>vv.id===l.vid);
     const plate=v?v.plate:'—';
     const name=v?v.make+' '+v.model:'—';
+    const editBtn=isAdmin()?`<td><button class="btn btn-outline" style="font-size:10px;padding:2px 8px;height:auto" onclick="openModal('editLeasing','${l.id}')"><i class="ti ti-pencil" aria-hidden="true"></i></button></td>`:'<td></td>';
     return `<tr>
       <td><span style="font-size:12px;font-weight:500">${name}</span><br><span style="font-family:var(--font-mono);font-size:10px;color:var(--text3)">${plate}</span></td>
       <td style="font-size:11px">${l.lessor}</td>
@@ -1688,13 +1699,15 @@ function renderLeasingHTML(cid){
       <td style="white-space:nowrap">${l.end}</td>
       <td style="text-align:right;white-space:nowrap">${l.restKm>0?l.restKm.toLocaleString('de-DE')+' km':'—'}</td>
       <td><span class="status-pill ${l.status==='active'?'pill-active':'pill-expired'}">${l.status==='active'?'Aktiv':'Ausgelaufen'}</span></td>
+      ${editBtn}
     </tr>`;
   }).join('');
-  const activeMonthly=items.filter(l=>l.status==='active').reduce((s,l)=>s+l.monthly,0);
-  return `<div class="section-title"><i class="ti ti-file-text" aria-hidden="true"></i> Leasingverträge (${items.length})</div>
+  const activeMonthly=items.filter(l=>l.status==='active').reduce((s,l)=>s+(parseFloat(l.monthly)||0),0);
+  const adminTh=isAdmin()?'<th></th>':'';
+  return `${header}
     <div class="detail-panel" style="padding:0;overflow:hidden">
       <table class="data-table">
-        <thead><tr><th>Fahrzeug</th><th>Leasinggeber</th><th style="text-align:right">Rate/Mo.</th><th style="text-align:center">Laufzeit</th><th>Beginn</th><th>Ende</th><th style="text-align:right">Rest-KM</th><th>Status</th></tr></thead>
+        <thead><tr><th>Fahrzeug</th><th>Leasinggeber</th><th style="text-align:right">Rate/Mo.</th><th style="text-align:center">Laufzeit</th><th>Beginn</th><th>Ende</th><th style="text-align:right">Rest-KM</th><th>Status</th>${adminTh}</tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
@@ -1869,7 +1882,7 @@ async function saveCalAppointment(id,cid){
     const res=await api('/api/calendar/'+id+'?company_id='+cid,{method:'PUT',body:JSON.stringify({...a,vehicleId:vid,plate,date,ziel,grund})});
     if(res&&res.ok){a.vehicleId=vid;a.plate=plate;a.date=date;a.ziel=ziel;a.grund=grund;}
   }else{
-    const payload={cid,vehicleId:vid,plate,date,ziel,grund,kundenStatus:null,kundenNachricht:'',alternativTermin:''};
+    const payload={company_id:cid,vehicle_id:vid,plate,date,ziel,grund,kundenStatus:null,kundenNachricht:'',alternativTermin:''};
     const res=await api('/api/calendar?company_id='+cid,{method:'POST',body:JSON.stringify(payload)});
     if(res&&res.ok){const saved=await res.json();state.calendar.push(saved);}
   }
@@ -2082,7 +2095,7 @@ async function saveMasterCalAppointment(){
   const grund=document.getElementById('cal-grund').value.trim();
   if(!cid){alert('Bitte eine Firma auswählen.');return;}
   if(!vid||!date||!ziel||!grund){alert('Bitte Fahrzeug, Datum, Zielort und Grund ausfüllen.');return;}
-  const payload={cid,vehicleId:vid,plate,date,uhrzeit:uhrzeit||'',ziel,grund,kundenStatus:null,kundenNachricht:'',alternativTermin:''};
+  const payload={company_id:cid,vehicle_id:vid,plate,date,uhrzeit:uhrzeit||'',ziel,grund,kundenStatus:null,kundenNachricht:'',alternativTermin:''};
   const res=await api('/api/calendar?company_id='+cid,{method:'POST',body:JSON.stringify(payload)});
   if(res&&res.ok){const saved=await res.json();state.calendar.push(saved);}
   const dObj=new Date(date);if(!isNaN(dObj)){masterCalState.year=dObj.getFullYear();masterCalState.month=dObj.getMonth();state.calYear=dObj.getFullYear();state.calMonth=dObj.getMonth();}
@@ -2314,7 +2327,7 @@ function getVehicleSVG(make, model, labels) {
 function renderDamageTab(v){
   const allMarkers=v.damages.flatMap((d,di)=>(d.markers||[]).map((m,mi)=>({...m,type:d.type||'sonstiges',title:d.title,di,mi,did:d.id})));
   const markersHTML=allMarkers.map(m=>{
-    const clickAttr=isAdmin()?`onclick="removeMarker('${v.id}','${m.did}',${m.mi},event)"`:'';
+    const clickAttr=isAdmin()?`onclick="openDamageFromMarker(event,'${m.did}')" ondblclick="removeMarker('${v.id}','${m.did}',${m.mi},event)"`:'';
     return `<div class="damage-marker ${m.type}" style="left:${m.x}%;top:${m.y}%" title="${m.title}" ${clickAttr}>${dmgSymbols[m.type]||'?'}</div>`;
   }).join('');
   const pendingHTML=isAdmin()?state.pendingMarkers.map(m=>`<div class="damage-marker ${state.activeDmgType}" style="left:${m.x}%;top:${m.y}%;opacity:0.65" title="Neu">${dmgSymbols[state.activeDmgType]}</div>`).join(''):'';
@@ -2323,7 +2336,7 @@ function renderDamageTab(v){
   const svgId=isAdmin()?`id="car-svg-wrap-${v.id}"`:'';
   const statusLabels={open:'Offen',closed:'Abgeschlossen','in-progress':'In Bearbeitung'};
   const statusIcons={open:'ti-alert-circle',closed:'ti-circle-check','in-progress':'ti-clock'};
-  const dmgList=v.damages.length?v.damages.map(d=>`<div class="damage-item ${d.status}">
+  const dmgList=v.damages.length?v.damages.map(d=>`<div class="damage-item ${d.status}" data-did="${d.id}">
     <div class="damage-icon"><i class="ti ${statusIcons[d.status]||'ti-tools'}" aria-hidden="true"></i></div>
     <div style="flex:1">
       <div class="damage-title">${d.title}</div>
@@ -2333,7 +2346,7 @@ function renderDamageTab(v){
   </div>`).join(''):`<div class="empty-state"><div class="empty-icon"><i class="ti ti-mood-happy" aria-hidden="true"></i></div><div class="empty-text">Keine Schäden erfasst</div></div>`;
 
   const addBtn=isAdmin()?`<button class="btn btn-gold" style="align-self:flex-start" onclick="openModal('damage','${v.id}')"><i class="ti ti-plus" aria-hidden="true"></i> Schaden erfassen</button>`:'';
-  const tip=isAdmin()?`<div class="tip-hint"><i class="ti ti-hand-click" style="font-size:12px" aria-hidden="true"></i> Typ wählen, dann auf Fahrzeug klicken um Schaden zu markieren. Auf Marker klicken zum Entfernen.</div>`:'';
+  const tip=isAdmin()?`<div class="tip-hint"><i class="ti ti-hand-click" style="font-size:12px" aria-hidden="true"></i> Typ wählen, dann auf Fahrzeug klicken um Schaden zu markieren. Einfachklick auf Marker öffnet Schaden. Doppelklick entfernt Marker.</div>`:'';
 
   return `<div class="damage-tab-layout">
     <div class="car-diagram-wrap">
@@ -2371,6 +2384,11 @@ function addMarkerOnCar(e,vid){
   openModal('damageFromMap',vid);
 }
 
+function openDamageFromMarker(e,did){
+  e.stopPropagation();
+  const el=document.querySelector(`.damage-item[data-did="${did}"]`);
+  if(el){el.scrollIntoView({behavior:'smooth',block:'nearest'});const prev=el.style.outline;el.style.outline='2px solid var(--gold)';el.style.borderRadius='6px';setTimeout(()=>{el.style.outline=prev;el.style.borderRadius='';},1500);}
+}
 function removeMarker(vid,did,mi,e){
   if(!isAdmin())return;
   e.stopPropagation();
@@ -2769,6 +2787,47 @@ function openModal(type,id=''){
       ${fbInfo}
       <div class="modal-actions">${delBtn}<button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" onclick="saveCalAppointment('${isEdit?id:''}','${cid}')"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button></div>
     </div>`;
+  } else if(type==='addInsurance'){
+    const vOpts=state.vehicles.filter(v=>v.cid===id).map(v=>`<option value="${v.id}">${v.plate} — ${v.make} ${v.model}</option>`).join('');
+    html=`<div class="modal"><div class="modal-title">Versicherung hinzufügen <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
+      <div class="form-group"><label class="form-label">Fahrzeug *</label><select class="form-input" id="ins-vid">${vOpts||'<option value="">Kein Fahrzeug vorhanden</option>'}</select></div>
+      <div class="form-group"><label class="form-label">Versicherungsart *</label><select class="form-input" id="ins-type"><option>Haftpflicht</option><option>Teilkasko</option><option>Vollkasko</option><option>Sonstiges</option></select></div>
+      <div class="form-group"><label class="form-label">Versicherer *</label><input class="form-input" id="ins-insurer" placeholder="z.B. Allianz"></div>
+      <div class="form-row"><div class="form-group"><label class="form-label">Policennummer</label><input class="form-input" id="ins-policy" style="font-family:var(--font-mono)" placeholder="z.B. HK-123456"></div><div class="form-group"><label class="form-label">Monatlicher Beitrag (€)</label><input class="form-input" id="ins-monthly" type="number" placeholder="0" min="0"></div></div>
+      <div class="form-group"><label class="form-label">Gültig bis</label><input class="form-input" id="ins-until" type="date"></div>
+      <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" onclick="saveInsurance('${id}')"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button></div></div>`;
+  } else if(type==='editInsurance'){
+    const ins=state.insurances.find(x=>x.id===id);
+    if(!ins){closeModal();return;}
+    const vOpts=state.vehicles.filter(v=>v.cid===ins.cid).map(v=>`<option value="${v.id}"${v.id===ins.vid?' selected':''}>${v.plate} — ${v.make} ${v.model}</option>`).join('');
+    const tOpts=['Haftpflicht','Teilkasko','Vollkasko','Sonstiges'].map(t=>`<option${ins.type===t?' selected':''}>${t}</option>`).join('');
+    html=`<div class="modal"><div class="modal-title">Versicherung bearbeiten <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
+      <div class="form-group"><label class="form-label">Fahrzeug</label><select class="form-input" id="ins-vid">${vOpts}</select></div>
+      <div class="form-group"><label class="form-label">Versicherungsart</label><select class="form-input" id="ins-type">${tOpts}</select></div>
+      <div class="form-group"><label class="form-label">Versicherer</label><input class="form-input" id="ins-insurer" value="${escHtml(ins.insurer||'')}"></div>
+      <div class="form-row"><div class="form-group"><label class="form-label">Policennummer</label><input class="form-input" id="ins-policy" value="${escHtml(ins.policy||'')}" style="font-family:var(--font-mono)"></div><div class="form-group"><label class="form-label">Monatlicher Beitrag (€)</label><input class="form-input" id="ins-monthly" type="number" value="${ins.monthly||0}"></div></div>
+      <div class="form-group"><label class="form-label">Gültig bis</label><input class="form-input" id="ins-until" type="date" value="${ins.until||''}"></div>
+      <div class="modal-actions"><button class="btn" style="color:var(--red);border:0.5px solid rgba(224,85,85,.3);background:var(--red-bg)" onclick="deleteInsurance('${id}','${ins.cid}')"><i class="ti ti-trash" aria-hidden="true"></i></button><button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" onclick="saveInsurance('${ins.cid}','${id}')"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button></div></div>`;
+  } else if(type==='addLeasing'){
+    const vOpts=state.vehicles.filter(v=>v.cid===id).map(v=>`<option value="${v.id}">${v.plate} — ${v.make} ${v.model}</option>`).join('');
+    html=`<div class="modal"><div class="modal-title">Leasingvertrag hinzufügen <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
+      <div class="form-group"><label class="form-label">Fahrzeug *</label><select class="form-input" id="leas-vid">${vOpts||'<option value="">Kein Fahrzeug vorhanden</option>'}</select></div>
+      <div class="form-group"><label class="form-label">Leasinggeber *</label><input class="form-input" id="leas-lessor" placeholder="z.B. Mercedes-Benz Leasing"></div>
+      <div class="form-row"><div class="form-group"><label class="form-label">Monatliche Rate (€)</label><input class="form-input" id="leas-monthly" type="number" placeholder="0" min="0"></div><div class="form-group"><label class="form-label">Laufzeit (Monate)</label><input class="form-input" id="leas-duration" type="number" placeholder="36"></div></div>
+      <div class="form-row"><div class="form-group"><label class="form-label">Beginn</label><input class="form-input" id="leas-start" type="date"></div><div class="form-group"><label class="form-label">Ende</label><input class="form-input" id="leas-end" type="date"></div></div>
+      <div class="form-row"><div class="form-group"><label class="form-label">Rest-KM</label><input class="form-input" id="leas-restkm" type="number" placeholder="0"></div><div class="form-group"><label class="form-label">Status</label><select class="form-input" id="leas-status"><option value="active">Aktiv</option><option value="expired">Ausgelaufen</option></select></div></div>
+      <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" onclick="saveLeasing('${id}')"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button></div></div>`;
+  } else if(type==='editLeasing'){
+    const l=state.leasings.find(x=>x.id===id);
+    if(!l){closeModal();return;}
+    const vOpts=state.vehicles.filter(v=>v.cid===l.cid).map(v=>`<option value="${v.id}"${v.id===l.vid?' selected':''}>${v.plate} — ${v.make} ${v.model}</option>`).join('');
+    html=`<div class="modal"><div class="modal-title">Leasingvertrag bearbeiten <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
+      <div class="form-group"><label class="form-label">Fahrzeug</label><select class="form-input" id="leas-vid">${vOpts}</select></div>
+      <div class="form-group"><label class="form-label">Leasinggeber</label><input class="form-input" id="leas-lessor" value="${escHtml(l.lessor||'')}"></div>
+      <div class="form-row"><div class="form-group"><label class="form-label">Monatliche Rate (€)</label><input class="form-input" id="leas-monthly" type="number" value="${l.monthly||0}"></div><div class="form-group"><label class="form-label">Laufzeit (Monate)</label><input class="form-input" id="leas-duration" type="number" value="${l.duration||0}"></div></div>
+      <div class="form-row"><div class="form-group"><label class="form-label">Beginn</label><input class="form-input" id="leas-start" type="date" value="${l.start||''}"></div><div class="form-group"><label class="form-label">Ende</label><input class="form-input" id="leas-end" type="date" value="${l.end||''}"></div></div>
+      <div class="form-row"><div class="form-group"><label class="form-label">Rest-KM</label><input class="form-input" id="leas-restkm" type="number" value="${l.restKm||0}"></div><div class="form-group"><label class="form-label">Status</label><select class="form-input" id="leas-status"><option value="active"${l.status==='active'?' selected':''}>Aktiv</option><option value="expired"${l.status==='expired'?' selected':''}>Ausgelaufen</option></select></div></div>
+      <div class="modal-actions"><button class="btn" style="color:var(--red);border:0.5px solid rgba(224,85,85,.3);background:var(--red-bg)" onclick="deleteLeasing('${id}','${l.cid}')"><i class="ti ti-trash" aria-hidden="true"></i></button><button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" onclick="saveLeasing('${l.cid}','${id}')"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button></div></div>`;
   }
   container.innerHTML=`<div class="modal-overlay" onclick="handleOverlayClick(event,'${type}')">${html}</div>`;
 }
@@ -2785,6 +2844,60 @@ async function saveAvailability(vid){
 }
 function closeModal(){document.getElementById('modal-container').innerHTML='';}
 function cancelDamage(){state.pendingMarkers=[];closeModal();}
+async function saveInsurance(cid,id){
+  const vid=document.getElementById('ins-vid').value;
+  const type=document.getElementById('ins-type').value;
+  const insurer=document.getElementById('ins-insurer').value.trim();
+  const policy=document.getElementById('ins-policy').value.trim();
+  const monthly=parseFloat(document.getElementById('ins-monthly').value)||0;
+  const until=document.getElementById('ins-until').value;
+  if(!insurer)return alert('Versicherer erforderlich');
+  const data={vid,type,insurer,policy,monthly,until};
+  if(id){
+    const res=await api('/api/insurance/'+id,{method:'PUT',body:JSON.stringify({data})});
+    if(res&&res.ok){const ins=state.insurances.find(x=>x.id===id);if(ins)Object.assign(ins,data);}
+    else{alert('Fehler beim Speichern');return;}
+  }else{
+    const res=await api('/api/insurance',{method:'POST',body:JSON.stringify({company_id:cid,data})});
+    if(res&&res.ok){const saved=await res.json();state.insurances.push({...(saved.data||saved),id:saved.id,cid:saved.company_id||cid});}
+    else{alert('Fehler beim Speichern');return;}
+  }
+  closeModal();renderMain();
+}
+async function deleteInsurance(id,cid){
+  if(!confirm('Versicherung wirklich löschen?'))return;
+  const res=await api('/api/insurance/'+id,{method:'DELETE'});
+  if(res&&res.ok)state.insurances=state.insurances.filter(x=>x.id!==id);
+  closeModal();renderMain();
+}
+async function saveLeasing(cid,id){
+  const vid=document.getElementById('leas-vid').value;
+  const lessor=document.getElementById('leas-lessor').value.trim();
+  const monthly=parseFloat(document.getElementById('leas-monthly').value)||0;
+  const duration=parseInt(document.getElementById('leas-duration').value)||0;
+  const start=document.getElementById('leas-start').value;
+  const end=document.getElementById('leas-end').value;
+  const restKm=parseInt(document.getElementById('leas-restkm').value)||0;
+  const status=document.getElementById('leas-status').value;
+  if(!lessor)return alert('Leasinggeber erforderlich');
+  const data={vid,lessor,monthly,duration,start,end,restKm,status};
+  if(id){
+    const res=await api('/api/leasing/'+id,{method:'PUT',body:JSON.stringify({data})});
+    if(res&&res.ok){const l=state.leasings.find(x=>x.id===id);if(l)Object.assign(l,data);}
+    else{alert('Fehler beim Speichern');return;}
+  }else{
+    const res=await api('/api/leasing',{method:'POST',body:JSON.stringify({vehicle_id:vid,data})});
+    if(res&&res.ok){const saved=await res.json();const v=state.vehicles.find(x=>x.id===vid);state.leasings.push({...(saved.data||saved),id:saved.id,vid:saved.vehicle_id||vid,cid:v?v.cid:cid});}
+    else{alert('Fehler beim Speichern');return;}
+  }
+  closeModal();renderMain();
+}
+async function deleteLeasing(id,cid){
+  if(!confirm('Leasingvertrag wirklich löschen?'))return;
+  const res=await api('/api/leasing/'+id,{method:'DELETE'});
+  if(res&&res.ok)state.leasings=state.leasings.filter(x=>x.id!==id);
+  closeModal();renderMain();
+}
 function toggleGroup(cid,gi){
   const key=cid+'|'+gi;
   state.collapsedGroups[key]=!state.collapsedGroups[key];
@@ -2941,22 +3054,26 @@ async function saveKundenzugang(cid){
 async function saveVehicle(cid){
   const make=document.getElementById('v-make').value.trim();const model=document.getElementById('v-model').value.trim();const plate=document.getElementById('v-plate').value.trim();
   if(!make||!model||!plate)return alert('Hersteller, Modell und Kennzeichen erforderlich');
-  const fb='2026-12-31';
-  const payload={cid,make,model,plate,
+  const payload={
+    company_id:cid,make,model,plate,
     year:parseInt(document.getElementById('v-year').value)||2024,
     km:parseInt(document.getElementById('v-km').value)||0,
     vin:document.getElementById('v-vin').value.trim(),
     besitzart:document.getElementById('v-besitzart').value,
     fuel:document.getElementById('v-fuel').value,
-    service:{date:document.getElementById('v-service').value||fb,interval:15000,lastKm:0},
-    tuev:{date:document.getElementById('v-tuev').value||fb},
-    tires:{date:document.getElementById('v-tiredate').value||fb,
-      type:document.getElementById('v-tires').value,
-      sizeFL:document.getElementById('v-sizefl').value.trim(),
-      sizeFR:document.getElementById('v-sizefr').value.trim(),
-      sizeRL:document.getElementById('v-sizerl').value.trim(),
-      sizeRR:document.getElementById('v-sizerr').value.trim()},
-    detailing:{date:document.getElementById('v-detail').value||fb},gruppe:'Ohne Zuordnung',damages:[]};
+    verfuegbar:true,
+    service_date:document.getElementById('v-service').value||null,
+    service_interval:15000,
+    service_last_km:0,
+    tuev_date:document.getElementById('v-tuev').value||null,
+    tires_date:document.getElementById('v-tiredate').value||null,
+    tires_type:document.getElementById('v-tires').value,
+    tire_size_fl:document.getElementById('v-sizefl').value.trim(),
+    tire_size_fr:document.getElementById('v-sizefr').value.trim(),
+    tire_size_rl:document.getElementById('v-sizerl').value.trim(),
+    tire_size_rr:document.getElementById('v-sizerr').value.trim(),
+    detailing_date:document.getElementById('v-detail').value||null,
+    damages:[]};
   const res=await api('/api/vehicles?company_id='+cid,{method:'POST',body:JSON.stringify(payload)});
   if(res&&res.ok){const saved=await res.json();saved.damages=saved.damages||[];state.vehicles.push(saved);}
   closeModal();renderMain();
@@ -3005,11 +3122,11 @@ async function saveReminders(vid){
 let _fleetBaseVehicles=null;
 
 function openVerfuegbarModal(cid){
-  const veh=state.vehicles.filter(v=>v.cid===cid&&v.verfuegbar!==false&&!v.damages.some(d=>d.status==='open'||d.status==='in-progress')&&![daysUntil(v.service.date),daysUntil(v.tuev.date),daysUntil(v.tires.date),daysUntil(v.detailing.date)].some(d=>d>=0&&d<=30));
+  const veh=state.vehicles.filter(v=>v.cid===cid&&v.verfuegbar!==false&&!v.damages.some(d=>d.status==='in-progress'||d.status==='werkstatt')&&![daysUntil(v.service.date),daysUntil(v.tuev.date),daysUntil(v.tires.date),daysUntil(v.detailing.date)].some(d=>d>=0&&d<=30));
   openVehicleFleetModal(cid,veh,'Fahrbereite Fahrzeuge');
 }
 function openInBearbeitungModal(cid){
-  const veh=state.vehicles.filter(v=>v.cid===cid&&(v.damages.some(d=>d.status==='open'||d.status==='in-progress')||[daysUntil(v.service.date),daysUntil(v.tuev.date),daysUntil(v.tires.date),daysUntil(v.detailing.date)].some(d=>d>=0&&d<=30)));
+  const veh=state.vehicles.filter(v=>v.cid===cid&&(v.damages.some(d=>d.status==='in-progress'||d.status==='werkstatt')||[daysUntil(v.service.date),daysUntil(v.tuev.date),daysUntil(v.tires.date),daysUntil(v.detailing.date)].some(d=>d>=0&&d<=30)));
   openVehicleFleetModal(cid,veh,'In Bearbeitung');
 }
 function openNichtVerfuegbarModal(cid){
