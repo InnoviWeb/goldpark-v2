@@ -1254,6 +1254,7 @@ function buildVehicleSection(vehicles,company){
           ${reminders.length===0&&dmg.length===0?`<div class="reminder-item ok"><i class="ti ti-check" style="font-size:10px" aria-hidden="true"></i>Alles in Ordnung</div>`:''}
         </div>
         ${isAdmin()?`<select class="gruppe-select" onclick="event.stopPropagation()" onchange="moveVehicleGroup('${v.id}',this.value)">${gOpts}</select>`:''}
+        ${isAdmin()?`<button onclick="event.stopPropagation();deleteVehicle('${v.id}','${cid}')" style="width:100%;margin-top:5px;padding:3px 0;background:none;border:1px solid #DCDCDC;border-radius:5px;font-size:11px;color:#AAA;cursor:pointer;font-family:var(--font-sans);display:flex;align-items:center;justify-content:center;gap:4px" onmouseenter="this.style.background='#FFF0F0';this.style.color='#CC2222';this.style.borderColor='#CC2222'" onmouseleave="this.style.background='none';this.style.color='#AAA';this.style.borderColor='#DCDCDC'"><i class="ti ti-trash" style="font-size:11px" aria-hidden="true"></i> Löschen</button>`:''}
       </div>`;
     }).join('');
     return `<div>
@@ -1295,7 +1296,7 @@ function renderMain(){
 
   const adminActions = isAdmin() ? `
     <button class="btn btn-gold" onclick="openModal('vehicle','${company.id}')"><i class="ti ti-plus" aria-hidden="true"></i> Fahrzeug</button>
-    <button class="btn btn-outline" onclick="openModal('editCompany','${company.id}')"><i class="ti ti-edit" aria-hidden="true"></i></button>
+    <button class="btn" style="background:#2C2C2C;color:#FFF;border:1px solid #555" onclick="openModal('editCompany','${company.id}')"><i class="ti ti-edit" aria-hidden="true"></i></button>
   ` : `<span class="readonly-badge"><i class="ti ti-eye" style="font-size:10px" aria-hidden="true"></i> Nur-Lesen</span>`;
 
   const hdr=`<div class="top-bar"><div><div class="page-title">${company.name}</div><div class="page-sub">${company.contact} · ${company.phone} · ${company.email}</div></div><div class="actions">${adminActions}</div></div>`;
@@ -1428,15 +1429,15 @@ function renderInvoicesHTML(cid){
     <span style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;display:flex;align-items:center;gap:6px;white-space:nowrap"><i class="ti ti-receipt" aria-hidden="true"></i> Rechnungen (${invs.length})</span>
     <div style="flex:1;height:0.5px;background:var(--border)"></div>${addBtn}
   </div>`;
-  if(!invs.length) return titleRow+`<div class=”detail-panel”><div class=”empty-state”><div class=”empty-icon”><i class=”ti ti-receipt” aria-hidden=”true”></i></div><div class=”empty-text”>Keine Rechnungen vorhanden</div></div></div>`;
+  if(!invs.length) return titleRow+`<div class="detail-panel"><div class="empty-state"><div class="empty-icon"><i class="ti ti-receipt" aria-hidden="true"></i></div><div class="empty-text">Keine Rechnungen vorhanden</div></div></div>`;
   const rows=invs.map(i=>{
     const isPaid=i.status==='bezahlt'||i.status==='paid';
-    const statusCell=admin?`<div style=”display:inline-flex;gap:3px”>${['offen','bezahlt'].map(v=>{const active=isPaid?(v==='bezahlt'):(v==='offen');return `<button class=”inv-status-btn iv-${v==='bezahlt'?'paid':'open'}${active?' active':''}”${active?'':` onclick=”setInvoiceStatus('${i.id}','${cid}','${v}')”`}>${v==='bezahlt'?'Bezahlt':'Offen'}</button>`;}).join('')}</div>`:`<span class=”status-pill ${isPaid?'pill-paid':'pill-open'}”>${isPaid?'Bezahlt':'Offen'}</span>`;
-    const dlLink=i.file_path?`<a href=”${getDocumentUrl(i.file_path)}” target=”_blank” rel=”noopener” style=”display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--gold);text-decoration:none”><i class=”ti ti-download” aria-hidden=”true”></i> Download</a>`:'—';
-    const delBtn=admin?`<button onclick=”deleteInvoice('${i.id}','${cid}')” style=”display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:none;border:1px solid #DCDCDC;border-radius:5px;font-size:11px;color:#AAA;cursor:pointer;font-family:var(--font-sans)” onmouseenter=”this.style.background='#FFF0F0';this.style.color='#CC2222';this.style.borderColor='#CC2222'” onmouseleave=”this.style.background='none';this.style.color='#AAA';this.style.borderColor='#DCDCDC'”><i class=”ti ti-trash” style=”font-size:13px” aria-hidden=”true”></i></button>`:'';
-    return `<tr><td style=”font-weight:500”>${escHtml(i.titel||'')}</td><td>${statusCell}</td><td>${dlLink}</td>${admin?`<td>${delBtn}</td>`:''}</tr>`;
+    const statusCell=admin?`<div style="display:inline-flex;gap:3px">${['offen','bezahlt'].map(v=>{const active=isPaid?(v==='bezahlt'):(v==='offen');return `<button class="inv-status-btn iv-${v==='bezahlt'?'paid':'open'}${active?' active':''}"${active?'':` onclick="setInvoiceStatus('${i.id}','${cid}','${v}')"`}>${v==='bezahlt'?'Bezahlt':'Offen'}</button>`;}).join('')}</div>`:`<span class="status-pill ${isPaid?'pill-paid':'pill-open'}">${isPaid?'Bezahlt':'Offen'}</span>`;
+    const dlLink=i.file_path?`<a href="${getDocumentUrl(i.file_path)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--gold);text-decoration:none"><i class="ti ti-download" aria-hidden="true"></i> Download</a>`:'—';
+    const delBtn=admin?`<button onclick="deleteInvoice('${i.id}','${cid}')" style="display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:none;border:1px solid #DCDCDC;border-radius:5px;font-size:11px;color:#AAA;cursor:pointer;font-family:var(--font-sans)" onmouseenter="this.style.background='#FFF0F0';this.style.color='#CC2222';this.style.borderColor='#CC2222'" onmouseleave="this.style.background='none';this.style.color='#AAA';this.style.borderColor='#DCDCDC'"><i class="ti ti-trash" style="font-size:13px" aria-hidden="true"></i></button>`:'';
+    return `<tr><td style="font-weight:500">${escHtml(i.titel||'')}</td><td>${statusCell}</td><td>${dlLink}</td>${admin?`<td>${delBtn}</td>`:''}</tr>`;
   }).join('');
-  return titleRow+`<div class=”detail-panel” style=”padding:0;overflow:hidden”><div class=”data-table-wrap” style=”overflow-x:auto”><table class=”data-table”><thead><tr><th>Titel</th><th>Status</th><th>Datei</th>${admin?'<th></th>':''}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  return titleRow+`<div class="detail-panel" style="padding:0;overflow:hidden"><div class="data-table-wrap" style="overflow-x:auto"><table class="data-table"><thead><tr><th>Titel</th><th>Status</th><th>Datei</th>${admin?'<th></th>':''}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 
 async function setInvoiceStatus(invId,cid,newStatus){
@@ -1460,15 +1461,15 @@ async function deleteInvoice(invId,cid){
 }
 
 function openAddInvoiceModal(cid){
-  const html=`<div class=”modal” style=”width:440px;max-width:94vw”>
-    <div class=”modal-title”>Rechnung hochladen <button class=”modal-close” onclick=”closeModal()”><i class=”ti ti-x” aria-hidden=”true”></i></button></div>
-    <div class=”form-group”><label class=”form-label”>Titel *</label><input class=”form-input” id=”ni-titel” placeholder=”z. B. Inspektion Oktober 2026”></div>
-    <div class=”form-group”><label class=”form-label”>Datei *</label><input class=”form-input” type=”file” id=”ni-file” accept=”.pdf,.jpg,.jpeg,.png”></div>
-    <div class=”form-group”><label class=”form-label”>Status</label><select class=”form-input” id=”ni-status”><option value=”offen”>Offen</option><option value=”bezahlt”>Bezahlt</option></select></div>
-    <div id=”ni-err” style=”font-size:11px;color:var(--red);min-height:16px;margin-bottom:2px”></div>
-    <div class=”modal-actions”><button class=”btn btn-outline” onclick=”closeModal()”>Abbrechen</button><button class=”btn btn-gold” id=”ni-save” onclick=”saveNewInvoice('${cid}')”><i class=”ti ti-upload” aria-hidden=”true”></i> Hochladen</button></div>
+  const html=`<div class="modal" style="width:440px;max-width:94vw">
+    <div class="modal-title">Rechnung hochladen <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
+    <div class="form-group"><label class="form-label">Titel *</label><input class="form-input" id="ni-titel" placeholder="z. B. Inspektion Oktober 2026"></div>
+    <div class="form-group"><label class="form-label">Datei *</label><input class="form-input" type="file" id="ni-file" accept=".pdf,.jpg,.jpeg,.png"></div>
+    <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="ni-status"><option value="offen">Offen</option><option value="bezahlt">Bezahlt</option></select></div>
+    <div id="ni-err" style="font-size:11px;color:var(--red);min-height:16px;margin-bottom:2px"></div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" id="ni-save" onclick="saveNewInvoice('${cid}')"><i class="ti ti-upload" aria-hidden="true"></i> Hochladen</button></div>
   </div>`;
-  document.getElementById('modal-container').innerHTML=`<div class=”modal-overlay” onclick=”if(event.target===this)closeModal()”>${html}</div>`;
+  document.getElementById('modal-container').innerHTML=`<div class="modal-overlay" onclick="if(event.target===this)closeModal()">${html}</div>`;
 }
 
 async function saveNewInvoice(cid){
@@ -1503,33 +1504,33 @@ function angebotStatusMeta(st){
 function renderAngeboteHTML(cid){
   const admin=isAdmin();
   const list=state.angebote.filter(a=>a.cid===cid).slice();
-  const addBtn=admin?`<button onclick=”openAddAngebotModal('${cid}')” style=”display:inline-flex;align-items:center;gap:4px;padding:5px 11px;background:#333;color:#FFF;border:none;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;font-family:var(--font-sans);white-space:nowrap”><i class=”ti ti-upload” style=”font-size:12px” aria-hidden=”true”></i> Hochladen</button>`:'';
-  const titleRow=`<div style=”display:flex;align-items:center;gap:8px;margin-bottom:8px”><span style=”font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;display:flex;align-items:center;gap:6px;white-space:nowrap”><i class=”ti ti-file-text” aria-hidden=”true”></i> Angebote (${list.length})</span><div style=”flex:1;height:0.5px;background:var(--border)”></div>${addBtn}</div>`;
-  if(!list.length) return titleRow+`<div class=”detail-panel”><div class=”empty-state”><div class=”empty-icon”><i class=”ti ti-file-text” aria-hidden=”true”></i></div><div class=”empty-text”>Keine Angebote vorhanden</div></div></div>`;
+  const addBtn=admin?`<button onclick="openAddAngebotModal('${cid}')" style="display:inline-flex;align-items:center;gap:4px;padding:5px 11px;background:#333;color:#FFF;border:none;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;font-family:var(--font-sans);white-space:nowrap"><i class="ti ti-upload" style="font-size:12px" aria-hidden="true"></i> Hochladen</button>`:'';
+  const titleRow=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;display:flex;align-items:center;gap:6px;white-space:nowrap"><i class="ti ti-file-text" aria-hidden="true"></i> Angebote (${list.length})</span><div style="flex:1;height:0.5px;background:var(--border)"></div>${addBtn}</div>`;
+  if(!list.length) return titleRow+`<div class="detail-panel"><div class="empty-state"><div class="empty-icon"><i class="ti ti-file-text" aria-hidden="true"></i></div><div class="empty-text">Keine Angebote vorhanden</div></div></div>`;
   const cards=list.map(a=>{
     const sm=angebotStatusMeta(a.status);
     const isPending=!a.status||a.status==='ausstehend'||a.status==='offen';
-    const dlLink=a.file_path?`<a href=”${getDocumentUrl(a.file_path)}” target=”_blank” rel=”noopener” style=”display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--gold);text-decoration:none”><i class=”ti ti-download” aria-hidden=”true”></i> Download</a>`:'';
-    const customerBtns=!admin&&isPending?`<div style=”display:flex;gap:7px;flex-wrap:wrap;margin-top:8px”>
-      <button onclick=”openAngebotFreigabeModal('${a.id}','${cid}')” style=”display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-sans);border:1.5px solid var(--green);background:#F0F7F3;color:var(--green)”>✓ Freigeben</button>
-      <button onclick=”setAngebotAbgelehnt('${a.id}','${cid}')” style=”display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-sans);border:1.5px solid var(--red);background:var(--red-bg);color:var(--red)”>✕ Ablehnen</button>
+    const dlLink=a.file_path?`<a href="${getDocumentUrl(a.file_path)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--gold);text-decoration:none"><i class="ti ti-download" aria-hidden="true"></i> Download</a>`:'';
+    const customerBtns=!admin&&isPending?`<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:8px">
+      <button onclick="openAngebotFreigabeModal('${a.id}','${cid}')" style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-sans);border:1.5px solid var(--green);background:#F0F7F3;color:var(--green)">✓ Freigeben</button>
+      <button onclick="setAngebotAbgelehnt('${a.id}','${cid}')" style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-sans);border:1.5px solid var(--red);background:var(--red-bg);color:var(--red)">✕ Ablehnen</button>
     </div>`:'';
-    const freigabeInfo=(a.status==='freigegeben'&&a.freigabe_datum)?`<div style=”font-size:10px;color:var(--text3);margin-top:4px”>Freigabe erteilt am ${a.freigabe_datum}${a.freigabe_uhrzeit?' um '+a.freigabe_uhrzeit:''}</div>`:'';
-    const delBtn=admin?`<button onclick=”deleteAngebot('${a.id}','${cid}')” style=”display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:none;border:1px solid #DCDCDC;border-radius:5px;font-size:11px;color:#AAA;cursor:pointer;font-family:var(--font-sans)” onmouseenter=”this.style.background='#FFF0F0';this.style.color='#CC2222';this.style.borderColor='#CC2222'” onmouseleave=”this.style.background='none';this.style.color='#AAA';this.style.borderColor='#DCDCDC'”><i class=”ti ti-trash” style=”font-size:13px” aria-hidden=”true”></i></button>`:'';
-    return `<div style=”border:1px solid #E8E8E8;border-left:4px solid ${sm.color};border-radius:8px;padding:13px 15px;background:#FFF”>
-      <div style=”display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap”>
-        <div style=”min-width:0;flex:1”>
-          <div style=”font-size:13px;font-weight:600;color:var(--text)”>${escHtml(a.titel||'')}</div>
-          ${a.beschreibung?`<div style=”font-size:12px;color:var(--text2);margin-top:4px”>${escHtml(a.beschreibung)}</div>`:''}
+    const freigabeInfo=(a.status==='freigegeben'&&a.freigabe_datum)?`<div style="font-size:10px;color:var(--text3);margin-top:4px">Freigabe erteilt am ${a.freigabe_datum}${a.freigabe_uhrzeit?' um '+a.freigabe_uhrzeit:''}</div>`:'';
+    const delBtn=admin?`<button onclick="deleteAngebot('${a.id}','${cid}')" style="display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:none;border:1px solid #DCDCDC;border-radius:5px;font-size:11px;color:#AAA;cursor:pointer;font-family:var(--font-sans)" onmouseenter="this.style.background='#FFF0F0';this.style.color='#CC2222';this.style.borderColor='#CC2222'" onmouseleave="this.style.background='none';this.style.color='#AAA';this.style.borderColor='#DCDCDC'"><i class="ti ti-trash" style="font-size:13px" aria-hidden="true"></i></button>`:'';
+    return `<div style="border:1px solid #E8E8E8;border-left:4px solid ${sm.color};border-radius:8px;padding:13px 15px;background:#FFF">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
+        <div style="min-width:0;flex:1">
+          <div style="font-size:13px;font-weight:600;color:var(--text)">${escHtml(a.titel||'')}</div>
+          ${a.beschreibung?`<div style="font-size:12px;color:var(--text2);margin-top:4px">${escHtml(a.beschreibung)}</div>`:''}
         </div>
-        <div style=”display:flex;align-items:center;gap:8px;flex-shrink:0”>
-          <span class=”status-pill ${sm.cls}”>${sm.label}</span>${dlLink}${delBtn}
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <span class="status-pill ${sm.cls}">${sm.label}</span>${dlLink}${delBtn}
         </div>
       </div>
       ${freigabeInfo}${customerBtns}
     </div>`;
   }).join('');
-  return titleRow+`<div class=”detail-panel” style=”padding:14px;display:flex;flex-direction:column;gap:12px;max-height:600px;overflow-y:auto”>${cards}</div>`;
+  return titleRow+`<div class="detail-panel" style="padding:14px;display:flex;flex-direction:column;gap:12px;max-height:600px;overflow-y:auto">${cards}</div>`;
 }
 
 async function setAngebotAbgelehnt(id,cid){
@@ -1549,15 +1550,15 @@ async function deleteAngebot(id,cid){
 }
 
 function openAddAngebotModal(cid){
-  const html=`<div class=”modal” style=”width:440px;max-width:94vw”>
-    <div class=”modal-title”>Angebot hochladen <button class=”modal-close” onclick=”closeModal()”><i class=”ti ti-x” aria-hidden=”true”></i></button></div>
-    <div class=”form-group”><label class=”form-label”>Titel *</label><input class=”form-input” id=”na-titel” placeholder=”z. B. Reifenwechsel Herbst 2026”></div>
-    <div class=”form-group”><label class=”form-label”>Beschreibung</label><input class=”form-input” id=”na-desc” placeholder=”Optional”></div>
-    <div class=”form-group”><label class=”form-label”>Datei *</label><input class=”form-input” type=”file” id=”na-file” accept=”.pdf,.jpg,.jpeg,.png”></div>
-    <div id=”na-err” style=”font-size:11px;color:var(--red);min-height:16px;margin-bottom:2px”></div>
-    <div class=”modal-actions”><button class=”btn btn-outline” onclick=”closeModal()”>Abbrechen</button><button class=”btn btn-gold” id=”na-save” onclick=”saveNewAngebot('${cid}')”><i class=”ti ti-upload” aria-hidden=”true”></i> Hochladen</button></div>
+  const html=`<div class="modal" style="width:440px;max-width:94vw">
+    <div class="modal-title">Angebot hochladen <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
+    <div class="form-group"><label class="form-label">Titel *</label><input class="form-input" id="na-titel" placeholder="z. B. Reifenwechsel Herbst 2026"></div>
+    <div class="form-group"><label class="form-label">Beschreibung</label><input class="form-input" id="na-desc" placeholder="Optional"></div>
+    <div class="form-group"><label class="form-label">Datei *</label><input class="form-input" type="file" id="na-file" accept=".pdf,.jpg,.jpeg,.png"></div>
+    <div id="na-err" style="font-size:11px;color:var(--red);min-height:16px;margin-bottom:2px"></div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" id="na-save" onclick="saveNewAngebot('${cid}')"><i class="ti ti-upload" aria-hidden="true"></i> Hochladen</button></div>
   </div>`;
-  document.getElementById('modal-container').innerHTML=`<div class=”modal-overlay” onclick=”if(event.target===this)closeModal()”>${html}</div>`;
+  document.getElementById('modal-container').innerHTML=`<div class="modal-overlay" onclick="if(event.target===this)closeModal()">${html}</div>`;
 }
 
 async function saveNewAngebot(cid){
@@ -1585,20 +1586,20 @@ function openAngebotFreigabeModal(angebotId,cid){
   const a=state.angebote.find(x=>x.id===angebotId);if(!a)return;
   const today=new Date();
   const slots=['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'];
-  const slotOpts=slots.map(s=>`<option value=”${s}”>${s} Uhr</option>`).join('');
+  const slotOpts=slots.map(s=>`<option value="${s}">${s} Uhr</option>`).join('');
   const cal=buildFreigabeCalendar(cid,today.getFullYear(),today.getMonth(),angebotId);
-  const html=`<div class=”modal” style=”width:500px;max-width:96vw”>
-    <div class=”modal-title”>Angebot freigeben <button class=”modal-close” onclick=”closeModal()”><i class=”ti ti-x” aria-hidden=”true”></i></button></div>
-    <div style=”font-size:12px;color:var(--text2);margin-bottom:12px”>Wunschtermin für <strong>${escHtml(a.titel||'')}</strong> wählen.</div>
-    <div id=”freigabe-cal-wrap”>${cal}</div>
-    <div class=”form-row” style=”margin-top:12px”>
-      <div class=”form-group”><label class=”form-label”>Gewählter Tag</label><input class=”form-input” id=”freigabe-date” readonly placeholder=”Bitte Tag im Kalender wählen”></div>
-      <div class=”form-group”><label class=”form-label”>Uhrzeit</label><select class=”form-input” id=”freigabe-time”>${slotOpts}</select></div>
+  const html=`<div class="modal" style="width:500px;max-width:96vw">
+    <div class="modal-title">Angebot freigeben <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Wunschtermin für <strong>${escHtml(a.titel||'')}</strong> wählen.</div>
+    <div id="freigabe-cal-wrap">${cal}</div>
+    <div class="form-row" style="margin-top:12px">
+      <div class="form-group"><label class="form-label">Gewählter Tag</label><input class="form-input" id="freigabe-date" readonly placeholder="Bitte Tag im Kalender wählen"></div>
+      <div class="form-group"><label class="form-label">Uhrzeit</label><select class="form-input" id="freigabe-time">${slotOpts}</select></div>
     </div>
-    <div id=”freigabe-err” style=”font-size:11px;color:var(--red);min-height:16px;margin-bottom:2px”></div>
-    <div class=”modal-actions”><button class=”btn btn-outline” onclick=”closeModal()”>Abbrechen</button><button class=”btn btn-gold” id=”freigabe-save” onclick=”confirmAngebotFreigabe('${angebotId}','${cid}')”><i class=”ti ti-check” aria-hidden=”true”></i> Freigabe bestätigen</button></div>
+    <div id="freigabe-err" style="font-size:11px;color:var(--red);min-height:16px;margin-bottom:2px"></div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" id="freigabe-save" onclick="confirmAngebotFreigabe('${angebotId}','${cid}')"><i class="ti ti-check" aria-hidden="true"></i> Freigabe bestätigen</button></div>
   </div>`;
-  document.getElementById('modal-container').innerHTML=`<div class=”modal-overlay” onclick=”if(event.target===this)closeModal()”>${html}</div>`;
+  document.getElementById('modal-container').innerHTML=`<div class="modal-overlay" onclick="if(event.target===this)closeModal()">${html}</div>`;
 }
 
 function buildFreigabeCalendar(cid,year,month,angebotId){
@@ -1610,7 +1611,7 @@ function buildFreigabeCalendar(cid,year,month,angebotId){
   const blocked=new Set();
   state.blockedSlots.filter(b=>b.cid===cid&&b.uhrzeit==='ganztags').forEach(b=>blocked.add(b.datum));
   state.calendar.filter(c=>c.cid===cid).forEach(c=>{if(c.date)blocked.add(c.date);if(c.datum)blocked.add(c.datum);});
-  let cells='<tr><th style=”padding:4px;font-size:10px;color:var(--text3)”>Mo</th><th style=”padding:4px;font-size:10px;color:var(--text3)”>Di</th><th style=”padding:4px;font-size:10px;color:var(--text3)”>Mi</th><th style=”padding:4px;font-size:10px;color:var(--text3)”>Do</th><th style=”padding:4px;font-size:10px;color:var(--text3)”>Fr</th><th style=”padding:4px;font-size:10px;color:var(--text3)”>Sa</th><th style=”padding:4px;font-size:10px;color:var(--text3)”>So</th></tr><tr>';
+  let cells='<tr><th style="padding:4px;font-size:10px;color:var(--text3)">Mo</th><th style="padding:4px;font-size:10px;color:var(--text3)">Di</th><th style="padding:4px;font-size:10px;color:var(--text3)">Mi</th><th style="padding:4px;font-size:10px;color:var(--text3)">Do</th><th style="padding:4px;font-size:10px;color:var(--text3)">Fr</th><th style="padding:4px;font-size:10px;color:var(--text3)">Sa</th><th style="padding:4px;font-size:10px;color:var(--text3)">So</th></tr><tr>';
   for(let i=0;i<startDow;i++)cells+=`<td></td>`;
   let col=startDow;
   for(let d=1;d<=dim;d++){
@@ -1622,18 +1623,18 @@ function buildFreigabeCalendar(cid,year,month,angebotId){
     const col_=isBlocked?'#CCC':'#2A7A4A';
     const cursor=isBlocked?'not-allowed':'pointer';
     const fw=isBlocked?'400':'600';
-    const onclick=isBlocked?'':`onclick=”selectFreigabeDay('${ds}')”`;
-    cells+=`<td id=”fcal-${ds}” ${onclick} style=”background:${bg};color:${col_};cursor:${cursor};font-weight:${fw};padding:6px 4px;text-align:center;border-radius:4px;font-size:12px”>${d}</td>`;
+    const onclick=isBlocked?'':`onclick="selectFreigabeDay('${ds}')"`;
+    cells+=`<td id="fcal-${ds}" ${onclick} style="background:${bg};color:${col_};cursor:${cursor};font-weight:${fw};padding:6px 4px;text-align:center;border-radius:4px;font-size:12px">${d}</td>`;
     col++;
     if(col%7===0&&d<dim)cells+=`</tr><tr>`;
   }
   while(col%7!==0){cells+=`<td></td>`;col++;}
   cells+=`</tr>`;
-  const prev=`<button onclick=”shiftFreigabeCal(-1,'${cid}','${year}','${month}','${angebotId}')” style=”background:none;border:none;cursor:pointer;font-size:18px;padding:2px 8px;color:var(--text)”>‹</button>`;
-  const next=`<button onclick=”shiftFreigabeCal(1,'${cid}','${year}','${month}','${angebotId}')” style=”background:none;border:none;cursor:pointer;font-size:18px;padding:2px 8px;color:var(--text)”>›</button>`;
-  return `<div style=”border:1px solid var(--border);border-radius:8px;overflow:hidden”>
-    <div style=”display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#F8F8F8;border-bottom:1px solid var(--border)”>${prev}<strong style=”font-size:13px”>${mn[month]} ${year}</strong>${next}</div>
-    <table style=”width:100%;border-collapse:collapse;padding:6px”><thead>${cells}</thead></table>
+  const prev=`<button onclick="shiftFreigabeCal(-1,'${cid}','${year}','${month}','${angebotId}')" style="background:none;border:none;cursor:pointer;font-size:18px;padding:2px 8px;color:var(--text)">‹</button>`;
+  const next=`<button onclick="shiftFreigabeCal(1,'${cid}','${year}','${month}','${angebotId}')" style="background:none;border:none;cursor:pointer;font-size:18px;padding:2px 8px;color:var(--text)">›</button>`;
+  return `<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#F8F8F8;border-bottom:1px solid var(--border)">${prev}<strong style="font-size:13px">${mn[month]} ${year}</strong>${next}</div>
+    <table style="width:100%;border-collapse:collapse;padding:6px"><thead>${cells}</thead></table>
   </div>`;
 }
 
@@ -1647,7 +1648,7 @@ function shiftFreigabeCal(dir,cid,year,month,angebotId){
 function selectFreigabeDay(ds){
   const inp=document.getElementById('freigabe-date');
   if(inp)inp.value=ds;
-  document.querySelectorAll('[id^=”fcal-”]').forEach(el=>el.style.outline='');
+  document.querySelectorAll('[id^="fcal-"]').forEach(el=>el.style.outline='');
   const el=document.getElementById('fcal-'+ds);
   if(el)el.style.outline='2px solid var(--gold)';
 }
@@ -1679,27 +1680,27 @@ async function confirmAngebotFreigabe(angebotId,cid){
 function renderInsuranceHTML(cid){
   const admin=isAdmin();
   const items=state.insurances.filter(i=>i.cid===cid);
-  const addBtn=admin?`<button onclick=”openAddInsuranceModal('${cid}')” style=”display:inline-flex;align-items:center;gap:4px;padding:5px 11px;background:#333;color:#FFF;border:none;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;font-family:var(--font-sans);white-space:nowrap”><i class=”ti ti-upload” style=”font-size:12px” aria-hidden=”true”></i> Hochladen</button>`:'';
-  const titleRow=`<div style=”display:flex;align-items:center;gap:8px;margin-bottom:8px”><span style=”font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;display:flex;align-items:center;gap:6px;white-space:nowrap”><i class=”ti ti-shield” aria-hidden=”true”></i> Versicherung (${items.length})</span><div style=”flex:1;height:0.5px;background:var(--border)”></div>${addBtn}</div>`;
-  if(!items.length) return titleRow+`<div class=”detail-panel”><div class=”empty-state”><div class=”empty-icon”><i class=”ti ti-shield” aria-hidden=”true”></i></div><div class=”empty-text”>Keine Versicherungsdaten vorhanden</div></div></div>`;
+  const addBtn=admin?`<button onclick="openAddInsuranceModal('${cid}')" style="display:inline-flex;align-items:center;gap:4px;padding:5px 11px;background:#333;color:#FFF;border:none;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;font-family:var(--font-sans);white-space:nowrap"><i class="ti ti-upload" style="font-size:12px" aria-hidden="true"></i> Hochladen</button>`:'';
+  const titleRow=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;display:flex;align-items:center;gap:6px;white-space:nowrap"><i class="ti ti-shield" aria-hidden="true"></i> Versicherung (${items.length})</span><div style="flex:1;height:0.5px;background:var(--border)"></div>${addBtn}</div>`;
+  if(!items.length) return titleRow+`<div class="detail-panel"><div class="empty-state"><div class="empty-icon"><i class="ti ti-shield" aria-hidden="true"></i></div><div class="empty-text">Keine Versicherungsdaten vorhanden</div></div></div>`;
   const rows=items.map(i=>{
-    const dlLink=i.file_path?`<a href=”${getDocumentUrl(i.file_path)}” target=”_blank” rel=”noopener” style=”display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--gold);text-decoration:none”><i class=”ti ti-download” aria-hidden=”true”></i> Download</a>`:'—';
-    const delBtn=admin?`<button onclick=”deleteInsuranceDoc('${i.id}','${cid}')” style=”display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:none;border:1px solid #DCDCDC;border-radius:5px;font-size:11px;color:#AAA;cursor:pointer;font-family:var(--font-sans)” onmouseenter=”this.style.background='#FFF0F0';this.style.color='#CC2222';this.style.borderColor='#CC2222'” onmouseleave=”this.style.background='none';this.style.color='#AAA';this.style.borderColor='#DCDCDC'”><i class=”ti ti-trash” style=”font-size:13px” aria-hidden=”true”></i></button>`:'';
-    return `<tr><td style=”font-weight:500”>${escHtml(i.titel||i.type||'')}</td><td style=”color:var(--text3)”>${i.ablauf||i.until||'—'}</td><td>${dlLink}</td>${admin?`<td>${delBtn}</td>`:''}</tr>`;
+    const dlLink=i.file_path?`<a href="${getDocumentUrl(i.file_path)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--gold);text-decoration:none"><i class="ti ti-download" aria-hidden="true"></i> Download</a>`:'—';
+    const delBtn=admin?`<button onclick="deleteInsuranceDoc('${i.id}','${cid}')" style="display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:none;border:1px solid #DCDCDC;border-radius:5px;font-size:11px;color:#AAA;cursor:pointer;font-family:var(--font-sans)" onmouseenter="this.style.background='#FFF0F0';this.style.color='#CC2222';this.style.borderColor='#CC2222'" onmouseleave="this.style.background='none';this.style.color='#AAA';this.style.borderColor='#DCDCDC'"><i class="ti ti-trash" style="font-size:13px" aria-hidden="true"></i></button>`:'';
+    return `<tr><td style="font-weight:500">${escHtml(i.titel||i.type||'')}</td><td style="color:var(--text3)">${i.ablauf||i.until||'—'}</td><td>${dlLink}</td>${admin?`<td>${delBtn}</td>`:''}</tr>`;
   }).join('');
-  return titleRow+`<div class=”detail-panel” style=”padding:0;overflow:hidden”><div class=”data-table-wrap” style=”overflow-x:auto”><table class=”data-table”><thead><tr><th>Titel</th><th>Ablauf</th><th>Datei</th>${admin?'<th></th>':''}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  return titleRow+`<div class="detail-panel" style="padding:0;overflow:hidden"><div class="data-table-wrap" style="overflow-x:auto"><table class="data-table"><thead><tr><th>Titel</th><th>Ablauf</th><th>Datei</th>${admin?'<th></th>':''}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 
 function openAddInsuranceModal(cid){
-  const html=`<div class=”modal” style=”width:440px;max-width:94vw”>
-    <div class=”modal-title”>Versicherung hochladen <button class=”modal-close” onclick=”closeModal()”><i class=”ti ti-x” aria-hidden=”true”></i></button></div>
-    <div class=”form-group”><label class=”form-label”>Titel *</label><input class=”form-input” id=”ins-titel” placeholder=”z. B. Haftpflichtversicherung 2026”></div>
-    <div class=”form-group”><label class=”form-label”>Ablaufdatum</label><input class=”form-input” type=”date” id=”ins-ablauf”></div>
-    <div class=”form-group”><label class=”form-label”>Datei *</label><input class=”form-input” type=”file” id=”ins-file” accept=”.pdf,.jpg,.jpeg,.png”></div>
-    <div id=”ins-err” style=”font-size:11px;color:var(--red);min-height:16px;margin-bottom:2px”></div>
-    <div class=”modal-actions”><button class=”btn btn-outline” onclick=”closeModal()”>Abbrechen</button><button class=”btn btn-gold” id=”ins-save” onclick=”saveInsuranceDoc('${cid}')”><i class=”ti ti-upload” aria-hidden=”true”></i> Hochladen</button></div>
+  const html=`<div class="modal" style="width:440px;max-width:94vw">
+    <div class="modal-title">Versicherung hochladen <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
+    <div class="form-group"><label class="form-label">Titel *</label><input class="form-input" id="ins-titel" placeholder="z. B. Haftpflichtversicherung 2026"></div>
+    <div class="form-group"><label class="form-label">Ablaufdatum</label><input class="form-input" type="date" id="ins-ablauf"></div>
+    <div class="form-group"><label class="form-label">Datei *</label><input class="form-input" type="file" id="ins-file" accept=".pdf,.jpg,.jpeg,.png"></div>
+    <div id="ins-err" style="font-size:11px;color:var(--red);min-height:16px;margin-bottom:2px"></div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" id="ins-save" onclick="saveInsuranceDoc('${cid}')"><i class="ti ti-upload" aria-hidden="true"></i> Hochladen</button></div>
   </div>`;
-  document.getElementById('modal-container').innerHTML=`<div class=”modal-overlay” onclick=”if(event.target===this)closeModal()”>${html}</div>`;
+  document.getElementById('modal-container').innerHTML=`<div class="modal-overlay" onclick="if(event.target===this)closeModal()">${html}</div>`;
 }
 
 async function saveInsuranceDoc(cid){
@@ -1733,30 +1734,30 @@ async function deleteInsuranceDoc(id,cid){
 function renderLeasingHTML(cid){
   const admin=isAdmin();
   const items=state.leasings.filter(l=>l.cid===cid);
-  const addBtn=admin?`<button onclick=”openAddLeasingModal('${cid}')” style=”display:inline-flex;align-items:center;gap:4px;padding:5px 11px;background:#333;color:#FFF;border:none;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;font-family:var(--font-sans);white-space:nowrap”><i class=”ti ti-upload” style=”font-size:12px” aria-hidden=”true”></i> Hochladen</button>`:'';
-  const titleRow=`<div style=”display:flex;align-items:center;gap:8px;margin-bottom:8px”><span style=”font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;display:flex;align-items:center;gap:6px;white-space:nowrap”><i class=”ti ti-file-text” aria-hidden=”true”></i> Leasing (${items.length})</span><div style=”flex:1;height:0.5px;background:var(--border)”></div>${addBtn}</div>`;
-  if(!items.length) return titleRow+`<div class=”detail-panel”><div class=”empty-state”><div class=”empty-icon”><i class=”ti ti-file-text” aria-hidden=”true”></i></div><div class=”empty-text”>Keine Leasing-Dokumente vorhanden</div></div></div>`;
+  const addBtn=admin?`<button onclick="openAddLeasingModal('${cid}')" style="display:inline-flex;align-items:center;gap:4px;padding:5px 11px;background:#333;color:#FFF;border:none;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;font-family:var(--font-sans);white-space:nowrap"><i class="ti ti-upload" style="font-size:12px" aria-hidden="true"></i> Hochladen</button>`:'';
+  const titleRow=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;display:flex;align-items:center;gap:6px;white-space:nowrap"><i class="ti ti-file-text" aria-hidden="true"></i> Leasing (${items.length})</span><div style="flex:1;height:0.5px;background:var(--border)"></div>${addBtn}</div>`;
+  if(!items.length) return titleRow+`<div class="detail-panel"><div class="empty-state"><div class="empty-icon"><i class="ti ti-file-text" aria-hidden="true"></i></div><div class="empty-text">Keine Leasing-Dokumente vorhanden</div></div></div>`;
   const rows=items.map(l=>{
     const v=state.vehicles.find(vv=>vv.id===(l.vid||l.vehicle_id));
     const vName=v?v.plate+' — '+v.make+' '+v.model:'—';
-    const dlLink=l.file_path?`<a href=”${getDocumentUrl(l.file_path)}” target=”_blank” rel=”noopener” style=”display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--gold);text-decoration:none”><i class=”ti ti-download” aria-hidden=”true”></i> Download</a>`:'—';
-    const delBtn=admin?`<button onclick=”deleteLeasingDoc('${l.id}','${cid}')” style=”display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:none;border:1px solid #DCDCDC;border-radius:5px;font-size:11px;color:#AAA;cursor:pointer;font-family:var(--font-sans)” onmouseenter=”this.style.background='#FFF0F0';this.style.color='#CC2222';this.style.borderColor='#CC2222'” onmouseleave=”this.style.background='none';this.style.color='#AAA';this.style.borderColor='#DCDCDC'”><i class=”ti ti-trash” style=”font-size:13px” aria-hidden=”true”></i></button>`:'';
-    return `<tr><td style=”font-weight:500”>${escHtml(l.titel||l.lessor||'')}</td><td style=”font-size:11px;color:var(--text3)”>${escHtml(vName)}</td><td>${dlLink}</td>${admin?`<td>${delBtn}</td>`:''}</tr>`;
+    const dlLink=l.file_path?`<a href="${getDocumentUrl(l.file_path)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--gold);text-decoration:none"><i class="ti ti-download" aria-hidden="true"></i> Download</a>`:'—';
+    const delBtn=admin?`<button onclick="deleteLeasingDoc('${l.id}','${cid}')" style="display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:none;border:1px solid #DCDCDC;border-radius:5px;font-size:11px;color:#AAA;cursor:pointer;font-family:var(--font-sans)" onmouseenter="this.style.background='#FFF0F0';this.style.color='#CC2222';this.style.borderColor='#CC2222'" onmouseleave="this.style.background='none';this.style.color='#AAA';this.style.borderColor='#DCDCDC'"><i class="ti ti-trash" style="font-size:13px" aria-hidden="true"></i></button>`:'';
+    return `<tr><td style="font-weight:500">${escHtml(l.titel||l.lessor||'')}</td><td style="font-size:11px;color:var(--text3)">${escHtml(vName)}</td><td>${dlLink}</td>${admin?`<td>${delBtn}</td>`:''}</tr>`;
   }).join('');
-  return titleRow+`<div class=”detail-panel” style=”padding:0;overflow:hidden”><div class=”data-table-wrap” style=”overflow-x:auto”><table class=”data-table”><thead><tr><th>Titel</th><th>Fahrzeug</th><th>Datei</th>${admin?'<th></th>':''}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  return titleRow+`<div class="detail-panel" style="padding:0;overflow:hidden"><div class="data-table-wrap" style="overflow-x:auto"><table class="data-table"><thead><tr><th>Titel</th><th>Fahrzeug</th><th>Datei</th>${admin?'<th></th>':''}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 
 function openAddLeasingModal(cid){
-  const vOpts=state.vehicles.filter(v=>v.cid===cid).map(v=>`<option value=”${v.id}”>${v.plate} — ${v.make} ${v.model}</option>`).join('');
-  const html=`<div class=”modal” style=”width:440px;max-width:94vw”>
-    <div class=”modal-title”>Leasing-Dokument hochladen <button class=”modal-close” onclick=”closeModal()”><i class=”ti ti-x” aria-hidden=”true”></i></button></div>
-    <div class=”form-group”><label class=”form-label”>Titel *</label><input class=”form-input” id=”leas-titel” placeholder=”z. B. Leasingvertrag Sprinter 2026”></div>
-    <div class=”form-group”><label class=”form-label”>Fahrzeug *</label><select class=”form-input” id=”leas-vid”>${vOpts||'<option value=””>Kein Fahrzeug vorhanden</option>'}</select></div>
-    <div class=”form-group”><label class=”form-label”>Datei *</label><input class=”form-input” type=”file” id=”leas-file” accept=”.pdf,.jpg,.jpeg,.png”></div>
-    <div id=”leas-err” style=”font-size:11px;color:var(--red);min-height:16px;margin-bottom:2px”></div>
-    <div class=”modal-actions”><button class=”btn btn-outline” onclick=”closeModal()”>Abbrechen</button><button class=”btn btn-gold” id=”leas-save” onclick=”saveLeasingDoc('${cid}')”><i class=”ti ti-upload” aria-hidden=”true”></i> Hochladen</button></div>
+  const vOpts=state.vehicles.filter(v=>v.cid===cid).map(v=>`<option value="${v.id}">${v.plate} — ${v.make} ${v.model}</option>`).join('');
+  const html=`<div class="modal" style="width:440px;max-width:94vw">
+    <div class="modal-title">Leasing-Dokument hochladen <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
+    <div class="form-group"><label class="form-label">Titel *</label><input class="form-input" id="leas-titel" placeholder="z. B. Leasingvertrag Sprinter 2026"></div>
+    <div class="form-group"><label class="form-label">Fahrzeug *</label><select class="form-input" id="leas-vid">${vOpts||'<option value="">Kein Fahrzeug vorhanden</option>'}</select></div>
+    <div class="form-group"><label class="form-label">Datei *</label><input class="form-input" type="file" id="leas-file" accept=".pdf,.jpg,.jpeg,.png"></div>
+    <div id="leas-err" style="font-size:11px;color:var(--red);min-height:16px;margin-bottom:2px"></div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" id="leas-save" onclick="saveLeasingDoc('${cid}')"><i class="ti ti-upload" aria-hidden="true"></i> Hochladen</button></div>
   </div>`;
-  document.getElementById('modal-container').innerHTML=`<div class=”modal-overlay” onclick=”if(event.target===this)closeModal()”>${html}</div>`;
+  document.getElementById('modal-container').innerHTML=`<div class="modal-overlay" onclick="if(event.target===this)closeModal()">${html}</div>`;
 }
 
 async function saveLeasingDoc(cid){
@@ -1784,6 +1785,45 @@ async function deleteLeasingDoc(id,cid){
   if(!confirm('Leasing-Dokument wirklich löschen?'))return;
   const res=await api('/api/leasing/'+id,{method:'DELETE'});
   if(res&&res.ok)state.leasings=state.leasings.filter(x=>x.id!==id);
+  renderMain();
+}
+
+async function deleteVehicle(vid,cid){
+  const v=state.vehicles.find(x=>x.id===vid);
+  const label=v?v.make+' '+v.model+' ('+v.plate+')':vid;
+  if(!confirm(label+' wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.'))return;
+  const res=await api('/api/vehicles/'+vid,{method:'DELETE'});
+  if(res&&res.ok){state.vehicles=state.vehicles.filter(x=>x.id!==vid);if(state.selectedVehicle===vid)state.selectedVehicle=null;}
+  renderMain();
+}
+async function deleteDriver(did,cid){
+  const d=state.drivers.find(x=>x.id===did);
+  const label=d?d.name:did;
+  if(!confirm(label+' wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.'))return;
+  const res=await api('/api/drivers/'+did,{method:'DELETE'});
+  if(res&&res.ok)state.drivers=state.drivers.filter(x=>x.id!==did);
+  closeModal();renderMain();
+}
+async function deleteCalEntry(aid,cid){
+  const a=state.calendar.find(x=>x.id===aid);
+  const label=a?'Termin am '+a.date+' ('+a.grund+')':'Termin';
+  if(!confirm(label+' wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.'))return;
+  const res=await api('/api/calendar/'+aid,{method:'DELETE'});
+  if(res&&res.ok)state.calendar=state.calendar.filter(x=>x.id!==aid);
+  renderMain();
+}
+async function deleteTrip(tid,cid){
+  if(!confirm('Fahrt wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.'))return;
+  const res=await api('/api/trips/'+tid,{method:'DELETE'});
+  if(res&&res.ok){state.trips=state.trips.filter(x=>x.id!==tid);document.getElementById('fahrtenbuch-modal-ol')?.remove();openFahrtenbuchModal(cid);}
+}
+async function deleteDamage(did,vid){
+  const v=state.vehicles.find(x=>x.id===vid);
+  const d=v&&v.damages.find(x=>x.id===did);
+  const label=d?d.title:'Schaden';
+  if(!confirm(label+' wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.'))return;
+  const res=await api('/api/damages/'+did,{method:'DELETE'});
+  if(res&&res.ok&&v){v.damages=v.damages.filter(x=>x.id!==did);}
   renderMain();
 }
 
@@ -1897,7 +1937,7 @@ function renderAngebotTerminListHTML(list){
         <div><i class="ti ti-file-text" style="color:var(--gold-dim)" aria-hidden="true"></i> <strong>Leistung:</strong> ${escHtml(a.beschreibung)}</div>
         <div><i class="ti ti-currency-euro" style="color:var(--gold-dim)" aria-hidden="true"></i> <strong>${a.betrag.toLocaleString('de-DE')} €</strong></div>
       </div>
-      ${a.terminNachricht?`<div class="cal-fb-box"><div style="font-weight:600;color:var(--text);margin-bottom:3px;font-size:10px;text-transform:uppercase;letter-spacing:.05em"><i class="ti ti-message-2" aria-hidden="true"></i> Nachricht vom Kunden</div><div>„${escHtml(a.terminNachricht)}“</div></div>`:''}
+      ${a.terminNachricht?`<div class="cal-fb-box"><div style="font-weight:600;color:var(--text);margin-bottom:3px;font-size:10px;text-transform:uppercase;letter-spacing:.05em"><i class="ti ti-message-2" aria-hidden="true"></i> Nachricht vom Kunden</div><div>"${escHtml(a.terminNachricht)}"</div></div>`:''}
     </div>`;
   }).join('')+`</div>`;
 }
@@ -1914,14 +1954,14 @@ function renderCalListHTML(appts){
     if(a.kundenStatus||a.kundenNachricht||a.alternativTermin){
       fb=`<div class="cal-fb-box"><div style="font-weight:600;color:var(--text);margin-bottom:3px;font-size:10px;text-transform:uppercase;letter-spacing:.05em"><i class="ti ti-message-2" aria-hidden="true"></i> Kundenrückmeldung</div>
         <div>Status: <strong>${calStatusLabel(a.kundenStatus)}</strong></div>
-        ${a.kundenNachricht?`<div style="margin-top:3px">Nachricht: „${a.kundenNachricht}“</div>`:''}
+        ${a.kundenNachricht?`<div style="margin-top:3px">Nachricht: "${a.kundenNachricht}"</div>`:''}
         ${a.alternativTermin?`<div style="margin-top:3px">Alternativvorschlag: <strong>${new Date(a.alternativTermin).toLocaleDateString('de-DE')}</strong></div>`:''}
       </div>`;
     }else if(admin){
       fb=`<div class="cal-fb-box" style="color:var(--text3)">Noch keine Kundenrückmeldung.</div>`;
     }
     const actions=admin
-      ?`<button class="btn btn-outline" style="font-size:11px;padding:3px 10px;height:auto" onclick="openCalEdit('${a.id}')"><i class="ti ti-edit" aria-hidden="true"></i> Bearbeiten</button>`
+      ?`<div style="display:flex;gap:6px;align-items:center"><button class="btn btn-outline" style="font-size:11px;padding:3px 10px;height:auto" onclick="openCalEdit('${a.id}')"><i class="ti ti-edit" aria-hidden="true"></i> Bearbeiten</button><button class="btn" style="font-size:11px;padding:3px 9px;height:auto;color:var(--red);border:1px solid rgba(224,85,85,.3);background:var(--red-bg)" onclick="deleteCalEntry('${a.id}','${a.cid}')"><i class="ti ti-trash" aria-hidden="true"></i></button></div>`
       :`<button class="btn btn-gold" style="font-size:11px;padding:3px 10px;height:auto" onclick="openCalFeedbackModal('${a.id}')"><i class="ti ti-message-circle" aria-hidden="true"></i> Bewerten</button>`;
     return `<div class="cal-list-card ${sc}">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -2108,7 +2148,7 @@ function renderMasterCalListHTML(appts){
     if(a.kundenStatus||a.kundenNachricht||a.alternativTermin){
       fb=`<div class="cal-fb-box"><div style="font-weight:600;color:var(--text);margin-bottom:3px;font-size:10px;text-transform:uppercase;letter-spacing:.05em"><i class="ti ti-message-2" aria-hidden="true"></i> Kundenrückmeldung</div>
         <div>Status: <strong>${calStatusLabel(a.kundenStatus)}</strong></div>
-        ${a.kundenNachricht?`<div style="margin-top:3px">Nachricht: „${escHtml(a.kundenNachricht)}“</div>`:''}
+        ${a.kundenNachricht?`<div style="margin-top:3px">Nachricht: "${escHtml(a.kundenNachricht)}"</div>`:''}
         ${a.alternativTermin?`<div style="margin-top:3px">Alternativvorschlag: <strong>${new Date(a.alternativTermin).toLocaleDateString('de-DE')}</strong></div>`:''}
       </div>`;
     }
@@ -2416,6 +2456,7 @@ function renderDamageTab(v){
       <div class="damage-meta">${dmgLabels[d.type]||'Schaden'} · ${d.desc} · ${new Date(d.date).toLocaleDateString('de-DE')} · ${Number(d.cost).toLocaleString('de-DE')} €</div>
     </div>
     <span class="badge ${d.status==='open'?'badge-danger':d.status==='in-progress'?'badge-warn':'badge-ok'}">${statusLabels[d.status]}</span>
+    ${isAdmin()?`<button onclick="event.stopPropagation();deleteDamage('${d.id}','${v.id}')" style="flex-shrink:0;background:none;border:none;cursor:pointer;color:#CCC;font-size:14px;line-height:1;padding:2px 5px;border-radius:3px;align-self:center" title="Schaden löschen" onmouseenter="this.style.color='#CC2222'" onmouseleave="this.style.color='#CCC'"><i class="ti ti-trash" aria-hidden="true"></i></button>`:''}
   </div>`).join(''):`<div class="empty-state"><div class="empty-icon"><i class="ti ti-mood-happy" aria-hidden="true"></i></div><div class="empty-text">Keine Schäden erfasst</div></div>`;
 
   const addBtn=isAdmin()?`<button class="btn btn-gold" style="align-self:flex-start" onclick="openModal('damage','${v.id}')"><i class="ti ti-plus" aria-hidden="true"></i> Schaden erfassen</button>`:'';
@@ -2733,6 +2774,7 @@ function openModal(type,id=''){
         <div style="font-size:10px;color:#888;margin-top:1px">${d.status==='checked'?'Letzte Kontrolle: '+d.lastCheck:d.status==='pending'?'Kontrolle ausstehend':d.reason||'Kein gültiger Führerschein'} · Klasse: ${d.licenseClass||'—'}</div>
       </div>
       <button class="btn btn-outline" style="font-size:10px;padding:2px 9px;height:auto;line-height:1.6;flex-shrink:0" onclick="openModal('editDriver','${d.id}')">Status ändern</button>
+      <button class="btn" style="flex-shrink:0;padding:2px 9px;height:auto;line-height:1.6;color:var(--red);border:1px solid rgba(224,85,85,.3);background:var(--red-bg)" onclick="deleteDriver('${d.id}','${cid}')"><i class="ti ti-trash" aria-hidden="true"></i></button>
     </div>`).join('');
     html=`<div class="modal" style="width:520px;max-width:92vw">
       <div class="modal-title">Führerscheinkontrolle — ${company?company.name:''} <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
@@ -2850,7 +2892,7 @@ function openModal(type,id=''){
     const vOpts=vehs.map(v=>`<option value="${v.id}" data-plate="${calEscAttr(v.plate)}"${appt.vehicleId===v.id?' selected':''}>${v.make} ${v.model} — ${v.plate}</option>`).join('');
     const defaultPlate=appt.plate||(vehs[0]?vehs[0].plate:'');
     const delBtn=isEdit?`<button class="btn" style="color:var(--red);border:0.5px solid rgba(224,85,85,.3);background:var(--red-bg)" onclick="deleteCalAppointment('${id}')"><i class="ti ti-trash" aria-hidden="true"></i></button>`:'';
-    const fbInfo=(isEdit&&(appt.kundenStatus||appt.kundenNachricht||appt.alternativTermin))?`<div class="cal-fb-box" style="margin-top:4px"><div style="font-weight:600;color:var(--text);margin-bottom:3px;font-size:10px;text-transform:uppercase;letter-spacing:.05em"><i class="ti ti-message-2" aria-hidden="true"></i> Kundenrückmeldung</div><div>Status: <strong>${calStatusLabel(appt.kundenStatus)}</strong></div>${appt.kundenNachricht?`<div style="margin-top:3px">Nachricht: „${appt.kundenNachricht}“</div>`:''}${appt.alternativTermin?`<div style="margin-top:3px">Alternativvorschlag: <strong>${new Date(appt.alternativTermin).toLocaleDateString('de-DE')}</strong></div>`:''}</div>`:'';
+    const fbInfo=(isEdit&&(appt.kundenStatus||appt.kundenNachricht||appt.alternativTermin))?`<div class="cal-fb-box" style="margin-top:4px"><div style="font-weight:600;color:var(--text);margin-bottom:3px;font-size:10px;text-transform:uppercase;letter-spacing:.05em"><i class="ti ti-message-2" aria-hidden="true"></i> Kundenrückmeldung</div><div>Status: <strong>${calStatusLabel(appt.kundenStatus)}</strong></div>${appt.kundenNachricht?`<div style="margin-top:3px">Nachricht: "${appt.kundenNachricht}"</div>`:''}${appt.alternativTermin?`<div style="margin-top:3px">Alternativvorschlag: <strong>${new Date(appt.alternativTermin).toLocaleDateString('de-DE')}</strong></div>`:''}</div>`:'';
     html=`<div class="modal"><div class="modal-title">${isEdit?'Termin bearbeiten':'Termin hinzufügen'} <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
       <div class="form-group"><label class="form-label">Fahrzeug *</label><select class="form-input" id="cal-vehicle" onchange="calSyncPlate()">${vOpts||'<option value="">Keine Fahrzeuge</option>'}</select></div>
       <div class="form-group"><label class="form-label">Kennzeichen (automatisch)</label><input class="form-input" id="cal-plate" value="${calEscAttr(defaultPlate)}" style="font-family:var(--font-mono);background:#F5F5F5" readonly></div>
@@ -3484,10 +3526,12 @@ function openFahrtenbuchModal(cid){
   const gesamtKm=trips.reduce((s,t)=>s+(t.km||0),0);
   const thS='text-align:left;font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;padding:8px 11px;border-bottom:1px solid #E0E0E0;white-space:nowrap;position:sticky;top:0;background:#FAFAFA;z-index:1';
   const tdS='padding:9px 11px;border-bottom:0.5px solid #F0F0F0;font-size:12px;vertical-align:top';
+  const admin=isAdmin();
   const rows=trips.length===0
-    ?`<tr><td colspan="9" style="text-align:center;padding:28px;color:#AAA;font-size:13px">Keine Fahrten vorhanden.</td></tr>`
+    ?`<tr><td colspan="${admin?10:9}" style="text-align:center;padding:28px;color:#AAA;font-size:13px">Keine Fahrten vorhanden.</td></tr>`
     :trips.map(t=>{
       const v=state.vehicles.find(v=>v.id===t.vid);
+      const delCell=admin?`<td style="${tdS}"><button onclick="deleteTrip('${t.id}','${cid}')" style="background:none;border:none;cursor:pointer;color:#CCC;font-size:15px;padding:2px 5px;border-radius:3px;line-height:1" title="Fahrt löschen" onmouseenter="this.style.color='#CC2222'" onmouseleave="this.style.color='#CCC'"><i class="ti ti-trash" style="font-size:13px" aria-hidden="true"></i></button></td>`:'';
       return `<tr>
         <td style="${tdS};color:var(--text3);white-space:nowrap">${_tripDateFmt(t.date)}</td>
         <td style="${tdS};font-family:var(--font-mono);color:var(--text);white-space:nowrap">${v?v.plate:'—'}</td>
@@ -3498,6 +3542,7 @@ function openFahrtenbuchModal(cid){
         <td style="${tdS};color:var(--text3);white-space:nowrap">${escHtml(t.fahrzeit||'—')}</td>
         <td style="${tdS};font-weight:600;color:var(--text);text-align:right;white-space:nowrap">${(t.km||0).toLocaleString('de-DE')} km</td>
         <td style="${tdS};font-family:var(--font-mono);color:var(--text3);text-align:right;white-space:nowrap">${(t.kmStand||0).toLocaleString('de-DE')} km</td>
+        ${delCell}
       </tr>`;
     }).join('');
   const addBtn=isAdmin()
@@ -3529,6 +3574,7 @@ function openFahrtenbuchModal(cid){
           <th style="${thS}">Fahrzeit</th>
           <th style="${thS};text-align:right">Gefahrene km</th>
           <th style="${thS};text-align:right">KM-Stand nach Fahrt</th>
+          ${admin?`<th style="${thS}"></th>`:''}
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
