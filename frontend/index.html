@@ -1407,311 +1407,384 @@ function renderMain(){
 function renderVehicleCostPieChart(cid) { return ''; }
 function renderSavingsTable(cid){ return ''; }
 
+/* ===== DOKUMENT-UPLOAD HELPERS ===== */
+async function uploadDocument(file,folder){
+  const path=folder+'/'+Date.now()+'_'+file.name;
+  const {data,error}=await sbClient.storage.from('documents').upload(path,file,{upsert:false});
+  if(error)throw error;
+  return path;
+}
+function getDocumentUrl(path){
+  const {data}=sbClient.storage.from('documents').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+/* ===== RECHNUNG ===== */
 function renderInvoicesHTML(cid){
-  const invs=state.invoices.filter(i=>i.cid===cid).slice().sort((a,b)=>new Date(b.datum||b.date)-new Date(a.datum||a.date));
   const admin=isAdmin();
+  const invs=state.invoices.filter(i=>i.cid===cid).slice();
+  const addBtn=admin?`<button onclick="openAddInvoiceModal('${cid}')" style="display:inline-flex;align-items:center;gap:4px;padding:5px 11px;background:#333;color:#FFF;border:none;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;font-family:var(--font-sans);white-space:nowrap"><i class="ti ti-upload" style="font-size:12px" aria-hidden="true"></i> Hochladen</button>`:'';
   const titleRow=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
     <span style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;display:flex;align-items:center;gap:6px;white-space:nowrap"><i class="ti ti-receipt" aria-hidden="true"></i> Rechnungen (${invs.length})</span>
-    <div style="flex:1;height:0.5px;background:var(--border)"></div>
-    ${admin?`<button onclick="openAddInvoiceModal('${cid}')" style="display:inline-flex;align-items:center;gap:4px;padding:5px 11px;background:#333;color:#FFF;border:none;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;font-family:var(--font-sans);white-space:nowrap;transition:background .12s" onmouseenter="this.style.background='#1A1A1A'" onmouseleave="this.style.background='#333'"><i class="ti ti-plus" style="font-size:12px" aria-hidden="true"></i> Rechnung hinzufügen</button>`:''}
+    <div style="flex:1;height:0.5px;background:var(--border)"></div>${addBtn}
   </div>`;
-  if(!invs.length) return titleRow+`<div class="detail-panel"><div class="empty-state"><div class="empty-icon"><i class="ti ti-receipt" aria-hidden="true"></i></div><div class="empty-text">Keine Rechnungen vorhanden</div></div></div>`;
+  if(!invs.length) return titleRow+`<div class=”detail-panel”><div class=”empty-state”><div class=”empty-icon”><i class=”ti ti-receipt” aria-hidden=”true”></i></div><div class=”empty-text”>Keine Rechnungen vorhanden</div></div></div>`;
   const rows=invs.map(i=>{
-    const sMeta=invoiceStatusMeta(i.status);
-    const fmt=n=>(typeof n==='number'?n:parseFloat(n)||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
-    const statusCell=admin?renderInvoiceStatusControl(i,cid):`<span class="status-pill ${sMeta.cls}">${sMeta.label}</span>`;
-    const delBtn=admin?`<button onclick="deleteInvoice('${i.id}','${cid}')" style="display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:none;border:1px solid #DCDCDC;border-radius:5px;font-size:11px;color:#AAA;cursor:pointer;font-family:var(--font-sans);transition:all .12s" onmouseenter="this.style.background='#FFF0F0';this.style.color='#CC2222';this.style.borderColor='#CC2222'" onmouseleave="this.style.background='none';this.style.color='#AAA';this.style.borderColor='#DCDCDC'"><i class="ti ti-trash" style="font-size:13px" aria-hidden="true"></i></button>`:'';
-    return `<tr>
-      <td style="font-weight:500">${escHtml(i.titel||'')}</td>
-      <td style="color:var(--text3)">${i.datum||i.date||''}</td>
-      <td style="text-align:right;font-weight:600;white-space:nowrap">${fmt(i.betrag||i.amount||0)}</td>
-      <td>${statusCell}</td>
-      <td>${delBtn}</td>
-    </tr>`;
+    const isPaid=i.status==='bezahlt'||i.status==='paid';
+    const statusCell=admin?`<div style=”display:inline-flex;gap:3px”>${['offen','bezahlt'].map(v=>{const active=isPaid?(v==='bezahlt'):(v==='offen');return `<button class=”inv-status-btn iv-${v==='bezahlt'?'paid':'open'}${active?' active':''}”${active?'':` onclick=”setInvoiceStatus('${i.id}','${cid}','${v}')”`}>${v==='bezahlt'?'Bezahlt':'Offen'}</button>`;}).join('')}</div>`:`<span class=”status-pill ${isPaid?'pill-paid':'pill-open'}”>${isPaid?'Bezahlt':'Offen'}</span>`;
+    const dlLink=i.file_path?`<a href=”${getDocumentUrl(i.file_path)}” target=”_blank” rel=”noopener” style=”display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--gold);text-decoration:none”><i class=”ti ti-download” aria-hidden=”true”></i> Download</a>`:'—';
+    const delBtn=admin?`<button onclick=”deleteInvoice('${i.id}','${cid}')” style=”display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:none;border:1px solid #DCDCDC;border-radius:5px;font-size:11px;color:#AAA;cursor:pointer;font-family:var(--font-sans)” onmouseenter=”this.style.background='#FFF0F0';this.style.color='#CC2222';this.style.borderColor='#CC2222'” onmouseleave=”this.style.background='none';this.style.color='#AAA';this.style.borderColor='#DCDCDC'”><i class=”ti ti-trash” style=”font-size:13px” aria-hidden=”true”></i></button>`:'';
+    return `<tr><td style=”font-weight:500”>${escHtml(i.titel||'')}</td><td>${statusCell}</td><td>${dlLink}</td>${admin?`<td>${delBtn}</td>`:''}</tr>`;
   }).join('');
-  const total=invs.reduce((s,i)=>s+(typeof(i.betrag||i.amount)==='number'?i.betrag||i.amount:parseFloat(i.betrag||i.amount)||0),0);
-  const openAmt=invs.filter(i=>i.status==='offen'||i.status==='open').reduce((s,i)=>s+(typeof(i.betrag||i.amount)==='number'?i.betrag||i.amount:parseFloat(i.betrag||i.amount)||0),0);
-  return titleRow+`<div class="detail-panel" style="padding:0;overflow:hidden">
-    <div class="data-table-wrap" style="overflow-x:auto">
-      <table class="data-table">
-        <thead><tr><th>Titel</th><th>Datum</th><th style="text-align:right">Betrag</th><th>Status</th><th></th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
-  </div>
-  <div style="display:flex;gap:20px;font-size:12px;color:var(--text2);padding:2px 0">
-    <span>Gesamt: <strong>${total.toLocaleString('de-DE')} €</strong></span>
-    ${openAmt>0?`<span style="color:var(--amber)">Offen: <strong>${openAmt.toLocaleString('de-DE')} €</strong></span>`:''}
-  </div>`;
-}
-
-function invoiceStatusMeta(st){
-  if(st==='bezahlt'||st==='paid')return{label:'Bezahlt',cls:'pill-paid'};
-  return{label:'Offen',cls:'pill-open'};
-}
-
-function renderInvoiceStatusControl(i,cid){
-  const opts=[['offen','Offen'],['bezahlt','Bezahlt']];
-  const cur=i.status==='paid'?'bezahlt':(i.status||'offen');
-  return `<div style=”display:inline-flex;gap:3px;flex-wrap:wrap”>`+opts.map(([val,label])=>{
-    const active=cur===val;
-    return `<button class=”inv-status-btn iv-${val==='bezahlt'?'paid':'open'}${active?' active':''}” ${active?'':`onclick=”setInvoiceStatus('${i.id}','${cid}','${val}')”`}>${label}</button>`;
-  }).join('')+`</div>`;
+  return titleRow+`<div class=”detail-panel” style=”padding:0;overflow:hidden”><div class=”data-table-wrap” style=”overflow-x:auto”><table class=”data-table”><thead><tr><th>Titel</th><th>Status</th><th>Datei</th>${admin?'<th></th>':''}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 
 async function setInvoiceStatus(invId,cid,newStatus){
   if(!isAdmin())return;
   const inv=state.invoices.find(i=>i.id===invId);
   if(!inv)return;
-  const data={titel:inv.titel,beschreibung:inv.beschreibung,betrag:inv.betrag,datum:inv.datum,status:newStatus};
+  const data={...inv,status:newStatus};
+  delete data.id;delete data.cid;
   const res=await api('/api/invoices/'+invId,{method:'PUT',body:JSON.stringify({data})});
-  if(res&&res.ok){inv.status=newStatus;}
-  reloadInvoicesSection(cid);
+  if(res&&res.ok)inv.status=newStatus;
+  renderMain();
 }
 
-function reloadInvoicesSection(cid){
-  const company=state.companies.find(c=>c.id===cid);
-  if(!company)return;
-  const main=document.getElementById('main-content');
-  if(!main)return;
-  const adminActions=`<button class="btn btn-gold" onclick="openModal('vehicle','${company.id}')"><i class="ti ti-plus" aria-hidden="true"></i> Fahrzeug</button>
-    <button class="btn btn-outline" onclick="openModal('editCompany','${company.id}')"><i class="ti ti-edit" aria-hidden="true"></i></button>`;
-  const hdr=`<div class="top-bar"><div><div class="page-title">${company.name}</div><div class="page-sub">${company.contact} · ${company.phone} · ${company.email}</div></div><div class="actions">${adminActions}</div></div>`;
-  main.innerHTML=hdr+renderInvoicesHTML(cid);
-  try{renderAdminAlertBars();}catch(e){}
-}
+function reloadInvoicesSection(cid){renderMain();try{renderAdminAlertBars();}catch(e){}}
 
 async function deleteInvoice(invId,cid){
-  if(!confirm('Rechnung wirklich löschen?\nDiese Aktion kann nicht rückgängig gemacht werden.'))return;
+  if(!confirm('Rechnung wirklich löschen?'))return;
   const res=await api('/api/invoices/'+invId,{method:'DELETE'});
-  if(res&&res.ok){state.invoices=state.invoices.filter(i=>i.id!==invId);}
-  reloadInvoicesSection(cid);
+  if(res&&res.ok)state.invoices=state.invoices.filter(i=>i.id!==invId);
+  renderMain();
 }
 
 function openAddInvoiceModal(cid){
-  const today=new Date().toISOString().slice(0,10);
-  const html=`<div class="modal" style="width:440px;max-width:94vw">
-    <div class="modal-title">Rechnung hinzufügen <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
-    <div class="form-group"><label class="form-label">Titel *</label><input class="form-input" id="ni-titel" placeholder="z. B. Inspektion Oktober 2026"></div>
-    <div class="form-group"><label class="form-label">Beschreibung</label><input class="form-input" id="ni-desc" placeholder="Optional"></div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Datum *</label><input class="form-input" type="date" id="ni-date" value="${today}"></div>
-      <div class="form-group"><label class="form-label">Betrag in € *</label><input class="form-input" type="number" id="ni-amount" min="0.01" step="0.01" placeholder="0,00"></div>
-    </div>
-    <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="ni-status"><option value="offen">Offen</option><option value="bezahlt">Bezahlt</option></select></div>
-    <div id="ni-err" style="font-size:11px;color:var(--red);min-height:16px;margin-bottom:2px"></div>
-    <div class="modal-actions">
-      <button class="btn btn-outline" onclick="closeModal()">Abbrechen</button>
-      <button class="btn btn-gold" onclick="saveNewInvoice('${cid}')"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button>
-    </div>
+  const html=`<div class=”modal” style=”width:440px;max-width:94vw”>
+    <div class=”modal-title”>Rechnung hochladen <button class=”modal-close” onclick=”closeModal()”><i class=”ti ti-x” aria-hidden=”true”></i></button></div>
+    <div class=”form-group”><label class=”form-label”>Titel *</label><input class=”form-input” id=”ni-titel” placeholder=”z. B. Inspektion Oktober 2026”></div>
+    <div class=”form-group”><label class=”form-label”>Datei *</label><input class=”form-input” type=”file” id=”ni-file” accept=”.pdf,.jpg,.jpeg,.png”></div>
+    <div class=”form-group”><label class=”form-label”>Status</label><select class=”form-input” id=”ni-status”><option value=”offen”>Offen</option><option value=”bezahlt”>Bezahlt</option></select></div>
+    <div id=”ni-err” style=”font-size:11px;color:var(--red);min-height:16px;margin-bottom:2px”></div>
+    <div class=”modal-actions”><button class=”btn btn-outline” onclick=”closeModal()”>Abbrechen</button><button class=”btn btn-gold” id=”ni-save” onclick=”saveNewInvoice('${cid}')”><i class=”ti ti-upload” aria-hidden=”true”></i> Hochladen</button></div>
   </div>`;
-  document.getElementById('modal-container').innerHTML=`<div class="modal-overlay" onclick="if(event.target===this)closeModal()">${html}</div>`;
+  document.getElementById('modal-container').innerHTML=`<div class=”modal-overlay” onclick=”if(event.target===this)closeModal()”>${html}</div>`;
 }
 
 async function saveNewInvoice(cid){
   const titel=((document.getElementById('ni-titel')||{}).value||'').trim();
-  const beschreibung=((document.getElementById('ni-desc')||{}).value||'').trim();
-  const datum=(document.getElementById('ni-date')||{}).value||'';
-  const amtRaw=parseFloat((document.getElementById('ni-amount')||{}).value||'');
-  const status=(document.getElementById('ni-status')||{}).value||'offen';
+  const fileEl=document.getElementById('ni-file');
+  const file=fileEl&&fileEl.files[0];
+  const status=((document.getElementById('ni-status')||{}).value)||'offen';
   const errEl=document.getElementById('ni-err');
-  if(!titel||!datum||isNaN(amtRaw)||amtRaw<=0){
-    if(errEl)errEl.textContent='Bitte Titel, Datum und Betrag ausfüllen.';
-    return;
-  }
-  const betrag=Math.round(amtRaw*100)/100;
-  const data={titel,beschreibung,datum,betrag,status};
-  const res=await api('/api/invoices',{method:'POST',body:JSON.stringify({company_id:cid,data})});
-  if(res&&res.ok){const saved=await res.json();state.invoices.push({...(saved.data||{}),id:saved.id,cid:saved.company_id});closeModal();reloadInvoicesSection(cid);}
-  else{if(errEl)errEl.textContent='Fehler beim Speichern.';}
+  const btn=document.getElementById('ni-save');
+  if(!titel){if(errEl)errEl.textContent='Bitte Titel ausfüllen.';return;}
+  if(!file){if(errEl)errEl.textContent='Bitte eine Datei auswählen.';return;}
+  if(btn)btn.disabled=true;
+  if(errEl)errEl.textContent='Wird hochgeladen…';
+  try{
+    const file_path=await uploadDocument(file,'rechnungen');
+    const data={titel,file_path,status};
+    const res=await api('/api/invoices',{method:'POST',body:JSON.stringify({company_id:cid,data})});
+    if(res&&res.ok){const saved=await res.json();state.invoices.push({...(saved.data||{}),id:saved.id,cid:saved.company_id||cid});closeModal();renderMain();}
+    else{if(errEl)errEl.textContent='Fehler beim Speichern.';if(btn)btn.disabled=false;}
+  }catch(e){if(errEl)errEl.textContent='Upload fehlgeschlagen: '+(e.message||e);if(btn)btn.disabled=false;}
 }
 
-/* ===================== ANGEBOTE ===================== */
-function reloadAngeboteSection(cid){
-  const company=state.companies.find(c=>c.id===cid);
-  if(!company)return;
-  const main=document.getElementById('main-content');
-  if(!main)return;
-  const adminActions=isAdmin()
-    ?`<button class="btn btn-gold" onclick="openModal('vehicle','${company.id}')"><i class="ti ti-plus" aria-hidden="true"></i> Fahrzeug</button>
-      <button class="btn btn-outline" onclick="openModal('editCompany','${company.id}')"><i class="ti ti-edit" aria-hidden="true"></i></button>`
-    :`<span class="readonly-badge"><i class="ti ti-eye" style="font-size:10px" aria-hidden="true"></i> Nur-Lesen</span>`;
-  const hdr=`<div class="top-bar"><div><div class="page-title">${company.name}</div><div class="page-sub">${company.contact} · ${company.phone} · ${company.email}</div></div><div class="actions">${adminActions}</div></div>`;
-  main.innerHTML=hdr+renderAngeboteHTML(cid);
-  try{renderAdminAlertBars();}catch(e){}
-}
+/* ===== ANGEBOTE ===== */
+function reloadAngeboteSection(cid){renderMain();try{renderAdminAlertBars();}catch(e){}}
 
 function angebotStatusMeta(st){
-  if(st==='bestaetigt')return{label:'Bestätigt',cls:'pill-paid',color:'var(--green)'};
+  if(st==='freigegeben'||st==='bestaetigt')return{label:'Freigegeben',cls:'pill-paid',color:'var(--green)'};
   if(st==='abgelehnt')return{label:'Abgelehnt',cls:'pill-cancelled',color:'var(--red)'};
-  return{label:'Offen',cls:'pill-open',color:'var(--amber)'};
-}
-
-function renderAngebotCard(a,cid){
-  const sm=angebotStatusMeta(a.status||a.kundenStatus);
-  const admin=isAdmin();
-  const fmt=n=>(typeof n==='number'?n:parseFloat(n)||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
-  const statusPill=`<span class="status-pill ${sm.cls}">${sm.label}</span>`;
-  const adminBtns=admin?`<button onclick="deleteAngebot('${a.id}','${cid}')" style="display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:none;border:1px solid #DCDCDC;border-radius:5px;font-size:11px;color:#AAA;cursor:pointer;font-family:var(--font-sans);white-space:nowrap;transition:all .12s" onmouseenter="this.style.background='#FFF0F0';this.style.color='#CC2222';this.style.borderColor='#CC2222'" onmouseleave="this.style.background='none';this.style.color='#AAA';this.style.borderColor='#DCDCDC'"><i class="ti ti-trash" style="font-size:13px" aria-hidden="true"></i> Löschen</button>`:'';
-  const customerBtns=!admin?`<div style="display:flex;gap:7px;flex-wrap:wrap">
-    ${['bestaetigt','abgelehnt'].map(val=>{
-      const info=angebotStatusMeta(val);
-      const active=(a.status||a.kundenStatus)===val;
-      return `<button onclick="setAngebotStatus('${a.id}','${cid}','${val}')" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-sans);border:1.5px solid ${active?info.color:'#DCDCDC'};background:${active?'#F0F7F3':'#FFF'};color:${active?info.color:'#666'};transition:all .12s">${val==='bestaetigt'?'✓ Bestätigen':'✕ Ablehnen'}</button>`;
-    }).join('')}
-  </div>`:'';
-  return `<div style="border:1px solid #E8E8E8;border-left:4px solid ${sm.color};border-radius:8px;padding:13px 15px;background:#FFF">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
-      <div style="min-width:0;flex:1">
-        <div style="font-size:13px;font-weight:600;color:var(--text)">${escHtml(a.titel||'')}</div>
-        ${a.beschreibung?`<div style="font-size:12px;color:var(--text2);margin-top:4px">${escHtml(a.beschreibung)}</div>`:''}
-        <div style="font-size:11px;color:var(--text3);margin-top:4px">${a.datum||''}</div>
-      </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:17px;font-weight:700;color:var(--text);white-space:nowrap">${fmt(a.betrag||a.amount||0)}</div>
-        <div style="margin-top:6px">${statusPill}</div>
-      </div>
-    </div>
-    <div style="display:flex;gap:6px;align-items:center;margin-top:11px;padding-top:10px;border-top:1px solid #F0F0F0;flex-wrap:wrap">
-      ${customerBtns}${adminBtns}
-    </div>
-  </div>`;
+  return{label:'Ausstehend',cls:'pill-open',color:'var(--amber)'};
 }
 
 function renderAngeboteHTML(cid){
   const admin=isAdmin();
-  const list=state.angebote.filter(a=>a.cid===cid).slice().sort((a,b)=>new Date(b.datum)-new Date(a.datum));
-  const titleRow=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-    <span style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;display:flex;align-items:center;gap:6px;white-space:nowrap"><i class="ti ti-file-text" aria-hidden="true"></i> Angebote (${list.length})</span>
-    <div style="flex:1;height:0.5px;background:var(--border)"></div>
-    ${admin?`<button onclick="openAddAngebotModal('${cid}')" style="display:inline-flex;align-items:center;gap:4px;padding:5px 11px;background:#333;color:#FFF;border:none;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;font-family:var(--font-sans);white-space:nowrap;transition:background .12s" onmouseenter="this.style.background='#1A1A1A'" onmouseleave="this.style.background='#333'"><i class="ti ti-plus" style="font-size:12px" aria-hidden="true"></i> Angebot hinzufügen</button>`:''}
-  </div>`;
-  if(!list.length) return titleRow+`<div class="detail-panel"><div class="empty-state"><div class="empty-icon"><i class="ti ti-file-text" aria-hidden="true"></i></div><div class="empty-text">Keine Angebote vorhanden</div></div></div>`;
-  const cards=list.map(a=>renderAngebotCard(a,cid)).join('');
-  const total=list.reduce((s,a)=>s+(typeof(a.betrag||a.amount)==='number'?a.betrag||a.amount:parseFloat(a.betrag||a.amount)||0),0);
-  return titleRow+`<div class="detail-panel" style="padding:14px;display:flex;flex-direction:column;gap:12px;max-height:600px;overflow-y:auto">${cards}</div>
-  <div style="font-size:12px;color:var(--text2);padding:2px 0">Gesamt: <strong>${total.toLocaleString('de-DE')} €</strong></div>`;
+  const list=state.angebote.filter(a=>a.cid===cid).slice();
+  const addBtn=admin?`<button onclick=”openAddAngebotModal('${cid}')” style=”display:inline-flex;align-items:center;gap:4px;padding:5px 11px;background:#333;color:#FFF;border:none;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;font-family:var(--font-sans);white-space:nowrap”><i class=”ti ti-upload” style=”font-size:12px” aria-hidden=”true”></i> Hochladen</button>`:'';
+  const titleRow=`<div style=”display:flex;align-items:center;gap:8px;margin-bottom:8px”><span style=”font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;display:flex;align-items:center;gap:6px;white-space:nowrap”><i class=”ti ti-file-text” aria-hidden=”true”></i> Angebote (${list.length})</span><div style=”flex:1;height:0.5px;background:var(--border)”></div>${addBtn}</div>`;
+  if(!list.length) return titleRow+`<div class=”detail-panel”><div class=”empty-state”><div class=”empty-icon”><i class=”ti ti-file-text” aria-hidden=”true”></i></div><div class=”empty-text”>Keine Angebote vorhanden</div></div></div>`;
+  const cards=list.map(a=>{
+    const sm=angebotStatusMeta(a.status);
+    const isPending=!a.status||a.status==='ausstehend'||a.status==='offen';
+    const dlLink=a.file_path?`<a href=”${getDocumentUrl(a.file_path)}” target=”_blank” rel=”noopener” style=”display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--gold);text-decoration:none”><i class=”ti ti-download” aria-hidden=”true”></i> Download</a>`:'';
+    const customerBtns=!admin&&isPending?`<div style=”display:flex;gap:7px;flex-wrap:wrap;margin-top:8px”>
+      <button onclick=”openAngebotFreigabeModal('${a.id}','${cid}')” style=”display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-sans);border:1.5px solid var(--green);background:#F0F7F3;color:var(--green)”>✓ Freigeben</button>
+      <button onclick=”setAngebotAbgelehnt('${a.id}','${cid}')” style=”display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-sans);border:1.5px solid var(--red);background:var(--red-bg);color:var(--red)”>✕ Ablehnen</button>
+    </div>`:'';
+    const freigabeInfo=(a.status==='freigegeben'&&a.freigabe_datum)?`<div style=”font-size:10px;color:var(--text3);margin-top:4px”>Freigabe erteilt am ${a.freigabe_datum}${a.freigabe_uhrzeit?' um '+a.freigabe_uhrzeit:''}</div>`:'';
+    const delBtn=admin?`<button onclick=”deleteAngebot('${a.id}','${cid}')” style=”display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:none;border:1px solid #DCDCDC;border-radius:5px;font-size:11px;color:#AAA;cursor:pointer;font-family:var(--font-sans)” onmouseenter=”this.style.background='#FFF0F0';this.style.color='#CC2222';this.style.borderColor='#CC2222'” onmouseleave=”this.style.background='none';this.style.color='#AAA';this.style.borderColor='#DCDCDC'”><i class=”ti ti-trash” style=”font-size:13px” aria-hidden=”true”></i></button>`:'';
+    return `<div style=”border:1px solid #E8E8E8;border-left:4px solid ${sm.color};border-radius:8px;padding:13px 15px;background:#FFF”>
+      <div style=”display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap”>
+        <div style=”min-width:0;flex:1”>
+          <div style=”font-size:13px;font-weight:600;color:var(--text)”>${escHtml(a.titel||'')}</div>
+          ${a.beschreibung?`<div style=”font-size:12px;color:var(--text2);margin-top:4px”>${escHtml(a.beschreibung)}</div>`:''}
+        </div>
+        <div style=”display:flex;align-items:center;gap:8px;flex-shrink:0”>
+          <span class=”status-pill ${sm.cls}”>${sm.label}</span>${dlLink}${delBtn}
+        </div>
+      </div>
+      ${freigabeInfo}${customerBtns}
+    </div>`;
+  }).join('');
+  return titleRow+`<div class=”detail-panel” style=”padding:14px;display:flex;flex-direction:column;gap:12px;max-height:600px;overflow-y:auto”>${cards}</div>`;
 }
 
-async function setAngebotStatus(id,cid,status){
-  const a=state.angebote.find(x=>x.id===id);
-  if(!a)return;
-  a.status=status;
-  a.kundenStatus=status;
-  const {id:_id,cid:_cid,...data}=a;
-  await api('/api/angebote/'+id,{method:'PUT',body:JSON.stringify({data})});
+async function setAngebotAbgelehnt(id,cid){
+  if(!confirm('Angebot ablehnen?'))return;
+  const a=state.angebote.find(x=>x.id===id);if(!a)return;
+  const data={...a,status:'abgelehnt'};delete data.id;delete data.cid;
+  const res=await api('/api/angebote/'+id,{method:'PUT',body:JSON.stringify({data})});
+  if(res&&res.ok)a.status='abgelehnt';
   reloadAngeboteSection(cid);
 }
 
 async function deleteAngebot(id,cid){
   if(!confirm('Angebot wirklich löschen?\nDiese Aktion kann nicht rückgängig gemacht werden.'))return;
   const res=await api('/api/angebote/'+id,{method:'DELETE'});
-  if(res&&res.ok){state.angebote=state.angebote.filter(a=>a.id!==id);}
+  if(res&&res.ok)state.angebote=state.angebote.filter(a=>a.id!==id);
   reloadAngeboteSection(cid);
 }
 
 function openAddAngebotModal(cid){
-  const today=new Date().toISOString().slice(0,10);
-  const html=`<div class="modal" style="width:440px;max-width:94vw">
-    <div class="modal-title">Angebot hinzufügen <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
-    <div class="form-group"><label class="form-label">Titel *</label><input class="form-input" id="na-titel" placeholder="z. B. Reifenwechsel Herbst 2026"></div>
-    <div class="form-group"><label class="form-label">Beschreibung</label><input class="form-input" id="na-desc" placeholder="Optional"></div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Datum *</label><input class="form-input" type="date" id="na-date" value="${today}"></div>
-      <div class="form-group"><label class="form-label">Betrag in € *</label><input class="form-input" type="number" id="na-amount" min="0.01" step="0.01" placeholder="0,00"></div>
-    </div>
-    <div id="na-err" style="font-size:11px;color:var(--red);min-height:16px;margin-bottom:2px"></div>
-    <div class="modal-actions">
-      <button class="btn btn-outline" onclick="closeModal()">Abbrechen</button>
-      <button class="btn btn-gold" onclick="saveNewAngebot('${cid}')"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button>
-    </div>
+  const html=`<div class=”modal” style=”width:440px;max-width:94vw”>
+    <div class=”modal-title”>Angebot hochladen <button class=”modal-close” onclick=”closeModal()”><i class=”ti ti-x” aria-hidden=”true”></i></button></div>
+    <div class=”form-group”><label class=”form-label”>Titel *</label><input class=”form-input” id=”na-titel” placeholder=”z. B. Reifenwechsel Herbst 2026”></div>
+    <div class=”form-group”><label class=”form-label”>Beschreibung</label><input class=”form-input” id=”na-desc” placeholder=”Optional”></div>
+    <div class=”form-group”><label class=”form-label”>Datei *</label><input class=”form-input” type=”file” id=”na-file” accept=”.pdf,.jpg,.jpeg,.png”></div>
+    <div id=”na-err” style=”font-size:11px;color:var(--red);min-height:16px;margin-bottom:2px”></div>
+    <div class=”modal-actions”><button class=”btn btn-outline” onclick=”closeModal()”>Abbrechen</button><button class=”btn btn-gold” id=”na-save” onclick=”saveNewAngebot('${cid}')”><i class=”ti ti-upload” aria-hidden=”true”></i> Hochladen</button></div>
   </div>`;
-  document.getElementById('modal-container').innerHTML=`<div class="modal-overlay" onclick="if(event.target===this)closeModal()">${html}</div>`;
+  document.getElementById('modal-container').innerHTML=`<div class=”modal-overlay” onclick=”if(event.target===this)closeModal()”>${html}</div>`;
 }
 
 async function saveNewAngebot(cid){
   const titel=((document.getElementById('na-titel')||{}).value||'').trim();
   const beschreibung=((document.getElementById('na-desc')||{}).value||'').trim();
-  const datum=(document.getElementById('na-date')||{}).value||'';
-  const amtRaw=parseFloat((document.getElementById('na-amount')||{}).value||'');
+  const fileEl=document.getElementById('na-file');
+  const file=fileEl&&fileEl.files[0];
   const errEl=document.getElementById('na-err');
-  if(!titel||!datum||isNaN(amtRaw)||amtRaw<=0){
-    if(errEl)errEl.textContent='Bitte Titel, Datum und Betrag ausfüllen.';
-    return;
+  const btn=document.getElementById('na-save');
+  if(!titel){if(errEl)errEl.textContent='Bitte Titel ausfüllen.';return;}
+  if(!file){if(errEl)errEl.textContent='Bitte eine Datei auswählen.';return;}
+  if(btn)btn.disabled=true;
+  if(errEl)errEl.textContent='Wird hochgeladen…';
+  try{
+    const file_path=await uploadDocument(file,'angebote');
+    const data={titel,beschreibung,file_path,status:'ausstehend'};
+    const res=await api('/api/angebote',{method:'POST',body:JSON.stringify({company_id:cid,data})});
+    if(res&&res.ok){const saved=await res.json();state.angebote.push({...(saved.data||{}),id:saved.id,cid:saved.company_id||cid});closeModal();reloadAngeboteSection(cid);}
+    else{if(errEl)errEl.textContent='Fehler beim Speichern.';if(btn)btn.disabled=false;}
+  }catch(e){if(errEl)errEl.textContent='Upload fehlgeschlagen: '+(e.message||e);if(btn)btn.disabled=false;}
+}
+
+/* ===== ANGEBOT FREIGABE + WUNSCHTERMIN ===== */
+function openAngebotFreigabeModal(angebotId,cid){
+  const a=state.angebote.find(x=>x.id===angebotId);if(!a)return;
+  const today=new Date();
+  const slots=['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'];
+  const slotOpts=slots.map(s=>`<option value=”${s}”>${s} Uhr</option>`).join('');
+  const cal=buildFreigabeCalendar(cid,today.getFullYear(),today.getMonth(),angebotId);
+  const html=`<div class=”modal” style=”width:500px;max-width:96vw”>
+    <div class=”modal-title”>Angebot freigeben <button class=”modal-close” onclick=”closeModal()”><i class=”ti ti-x” aria-hidden=”true”></i></button></div>
+    <div style=”font-size:12px;color:var(--text2);margin-bottom:12px”>Wunschtermin für <strong>${escHtml(a.titel||'')}</strong> wählen.</div>
+    <div id=”freigabe-cal-wrap”>${cal}</div>
+    <div class=”form-row” style=”margin-top:12px”>
+      <div class=”form-group”><label class=”form-label”>Gewählter Tag</label><input class=”form-input” id=”freigabe-date” readonly placeholder=”Bitte Tag im Kalender wählen”></div>
+      <div class=”form-group”><label class=”form-label”>Uhrzeit</label><select class=”form-input” id=”freigabe-time”>${slotOpts}</select></div>
+    </div>
+    <div id=”freigabe-err” style=”font-size:11px;color:var(--red);min-height:16px;margin-bottom:2px”></div>
+    <div class=”modal-actions”><button class=”btn btn-outline” onclick=”closeModal()”>Abbrechen</button><button class=”btn btn-gold” id=”freigabe-save” onclick=”confirmAngebotFreigabe('${angebotId}','${cid}')”><i class=”ti ti-check” aria-hidden=”true”></i> Freigabe bestätigen</button></div>
+  </div>`;
+  document.getElementById('modal-container').innerHTML=`<div class=”modal-overlay” onclick=”if(event.target===this)closeModal()”>${html}</div>`;
+}
+
+function buildFreigabeCalendar(cid,year,month,angebotId){
+  const mn=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  const today=new Date();today.setHours(0,0,0,0);
+  const fd=new Date(year,month,1).getDay();
+  const startDow=fd===0?6:fd-1;
+  const dim=new Date(year,month+1,0).getDate();
+  const blocked=new Set();
+  state.blockedSlots.filter(b=>b.cid===cid&&b.uhrzeit==='ganztags').forEach(b=>blocked.add(b.datum));
+  state.calendar.filter(c=>c.cid===cid).forEach(c=>{if(c.date)blocked.add(c.date);if(c.datum)blocked.add(c.datum);});
+  let cells='<tr><th style=”padding:4px;font-size:10px;color:var(--text3)”>Mo</th><th style=”padding:4px;font-size:10px;color:var(--text3)”>Di</th><th style=”padding:4px;font-size:10px;color:var(--text3)”>Mi</th><th style=”padding:4px;font-size:10px;color:var(--text3)”>Do</th><th style=”padding:4px;font-size:10px;color:var(--text3)”>Fr</th><th style=”padding:4px;font-size:10px;color:var(--text3)”>Sa</th><th style=”padding:4px;font-size:10px;color:var(--text3)”>So</th></tr><tr>';
+  for(let i=0;i<startDow;i++)cells+=`<td></td>`;
+  let col=startDow;
+  for(let d=1;d<=dim;d++){
+    const ds=year+'-'+String(month+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const dd=new Date(year,month,d);dd.setHours(0,0,0,0);
+    const isWe=dd.getDay()===0||dd.getDay()===6;
+    const isBlocked=blocked.has(ds)||dd<today||isWe;
+    const bg=isBlocked?'#FFF0F0':'#EFF7EF';
+    const col_=isBlocked?'#CCC':'#2A7A4A';
+    const cursor=isBlocked?'not-allowed':'pointer';
+    const fw=isBlocked?'400':'600';
+    const onclick=isBlocked?'':`onclick=”selectFreigabeDay('${ds}')”`;
+    cells+=`<td id=”fcal-${ds}” ${onclick} style=”background:${bg};color:${col_};cursor:${cursor};font-weight:${fw};padding:6px 4px;text-align:center;border-radius:4px;font-size:12px”>${d}</td>`;
+    col++;
+    if(col%7===0&&d<dim)cells+=`</tr><tr>`;
   }
-  const betrag=Math.round(amtRaw*100)/100;
-  const data={titel,beschreibung,datum,betrag,status:'offen',kundenStatus:null};
-  const res=await api('/api/angebote',{method:'POST',body:JSON.stringify({company_id:cid,data})});
-  if(res&&res.ok){const saved=await res.json();state.angebote.push({...(saved.data||{}),id:saved.id,cid:saved.company_id});}
-  else{if(errEl)errEl.textContent='Fehler beim Speichern.';return;}
-  closeModal();reloadAngeboteSection(cid);
+  while(col%7!==0){cells+=`<td></td>`;col++;}
+  cells+=`</tr>`;
+  const prev=`<button onclick=”shiftFreigabeCal(-1,'${cid}','${year}','${month}','${angebotId}')” style=”background:none;border:none;cursor:pointer;font-size:18px;padding:2px 8px;color:var(--text)”>‹</button>`;
+  const next=`<button onclick=”shiftFreigabeCal(1,'${cid}','${year}','${month}','${angebotId}')” style=”background:none;border:none;cursor:pointer;font-size:18px;padding:2px 8px;color:var(--text)”>›</button>`;
+  return `<div style=”border:1px solid var(--border);border-radius:8px;overflow:hidden”>
+    <div style=”display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#F8F8F8;border-bottom:1px solid var(--border)”>${prev}<strong style=”font-size:13px”>${mn[month]} ${year}</strong>${next}</div>
+    <table style=”width:100%;border-collapse:collapse;padding:6px”><thead>${cells}</thead></table>
+  </div>`;
 }
 
+function shiftFreigabeCal(dir,cid,year,month,angebotId){
+  let y=parseInt(year),m=parseInt(month)+parseInt(dir);
+  if(m<0){m=11;y--;}if(m>11){m=0;y++;}
+  const wrap=document.getElementById('freigabe-cal-wrap');
+  if(wrap)wrap.innerHTML=buildFreigabeCalendar(cid,y,m,angebotId);
+}
+
+function selectFreigabeDay(ds){
+  const inp=document.getElementById('freigabe-date');
+  if(inp)inp.value=ds;
+  document.querySelectorAll('[id^=”fcal-”]').forEach(el=>el.style.outline='');
+  const el=document.getElementById('fcal-'+ds);
+  if(el)el.style.outline='2px solid var(--gold)';
+}
+
+async function confirmAngebotFreigabe(angebotId,cid){
+  const date=((document.getElementById('freigabe-date')||{}).value||'').trim();
+  const time=((document.getElementById('freigabe-time')||{}).value)||'08:00';
+  const errEl=document.getElementById('freigabe-err');
+  const btn=document.getElementById('freigabe-save');
+  if(!date){if(errEl)errEl.textContent='Bitte einen Tag im Kalender auswählen.';return;}
+  const a=state.angebote.find(x=>x.id===angebotId);if(!a)return;
+  if(btn)btn.disabled=true;
+  const data={...a,status:'freigegeben',freigabe_datum:date,freigabe_uhrzeit:time,freigabe_timestamp:new Date().toISOString()};
+  delete data.id;delete data.cid;
+  const res=await api('/api/angebote/'+angebotId,{method:'PUT',body:JSON.stringify({data})});
+  if(res&&res.ok){
+    Object.assign(a,{status:'freigegeben',freigabe_datum:date,freigabe_uhrzeit:time});
+    const calPayload={company_id:cid,date,ziel:'Angebotstermin',grund:a.titel||'Angebot',kunden_status:'ausstehend'};
+    const calRes=await api('/api/calendar?company_id='+cid,{method:'POST',body:JSON.stringify(calPayload)});
+    if(calRes&&calRes.ok){const saved=await calRes.json();state.calendar.push(saved);}
+    closeModal();reloadAngeboteSection(cid);
+  }else{
+    if(errEl)errEl.textContent='Fehler beim Speichern.';
+    if(btn)btn.disabled=false;
+  }
+}
+
+/* ===== VERSICHERUNG ===== */
 function renderInsuranceHTML(cid){
+  const admin=isAdmin();
   const items=state.insurances.filter(i=>i.cid===cid);
-  const addBtn=isAdmin()?`<button class="btn btn-gold" onclick="openModal('addInsurance','${cid}')"><i class="ti ti-plus" aria-hidden="true"></i> Hinzufügen</button>`:'';
-  const header=`<div class="section-title" style="display:flex;align-items:center;justify-content:space-between"><span><i class="ti ti-shield" aria-hidden="true"></i> Versicherungsübersicht (${items.length})</span>${addBtn}</div>`;
-  if(!items.length) return header+'<div class="empty-state"><div class="empty-icon"><i class="ti ti-shield" aria-hidden="true"></i></div><div class="empty-text">Keine Versicherungsdaten vorhanden</div></div>';
+  const addBtn=admin?`<button onclick=”openAddInsuranceModal('${cid}')” style=”display:inline-flex;align-items:center;gap:4px;padding:5px 11px;background:#333;color:#FFF;border:none;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;font-family:var(--font-sans);white-space:nowrap”><i class=”ti ti-upload” style=”font-size:12px” aria-hidden=”true”></i> Hochladen</button>`:'';
+  const titleRow=`<div style=”display:flex;align-items:center;gap:8px;margin-bottom:8px”><span style=”font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;display:flex;align-items:center;gap:6px;white-space:nowrap”><i class=”ti ti-shield” aria-hidden=”true”></i> Versicherung (${items.length})</span><div style=”flex:1;height:0.5px;background:var(--border)”></div>${addBtn}</div>`;
+  if(!items.length) return titleRow+`<div class=”detail-panel”><div class=”empty-state”><div class=”empty-icon”><i class=”ti ti-shield” aria-hidden=”true”></i></div><div class=”empty-text”>Keine Versicherungsdaten vorhanden</div></div></div>`;
   const rows=items.map(i=>{
-    const v=state.vehicles.find(vv=>vv.id===i.vid);
-    const plate=v?v.plate:'—';
-    const dl=daysUntil(i.until);
-    const expiryWarn=dl<60?`<span class="status-pill pill-open" style="margin-left:6px">in ${dl}d</span>`:'';
-    const editBtn=isAdmin()?`<td><button class="btn btn-outline" style="font-size:10px;padding:2px 8px;height:auto" onclick="openModal('editInsurance','${i.id}')"><i class="ti ti-pencil" aria-hidden="true"></i></button></td>`:'<td></td>';
-    return `<tr>
-      <td><span style="font-family:var(--font-mono);font-size:11px">${plate}</span><br><span style="font-size:10px;color:var(--text3)">${v?v.make+' '+v.model:''}</span></td>
-      <td><span class="badge badge-ok" style="background:#F0F0F0;color:#555">${i.type}</span></td>
-      <td>${i.insurer}</td>
-      <td style="font-family:var(--font-mono);font-size:11px;color:var(--text3)">${i.policy}</td>
-      <td style="text-align:right;white-space:nowrap">${i.monthly} €/Mo.</td>
-      <td style="white-space:nowrap">${i.until}${expiryWarn}</td>
-      ${editBtn}
-    </tr>`;
+    const dlLink=i.file_path?`<a href=”${getDocumentUrl(i.file_path)}” target=”_blank” rel=”noopener” style=”display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--gold);text-decoration:none”><i class=”ti ti-download” aria-hidden=”true”></i> Download</a>`:'—';
+    const delBtn=admin?`<button onclick=”deleteInsuranceDoc('${i.id}','${cid}')” style=”display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:none;border:1px solid #DCDCDC;border-radius:5px;font-size:11px;color:#AAA;cursor:pointer;font-family:var(--font-sans)” onmouseenter=”this.style.background='#FFF0F0';this.style.color='#CC2222';this.style.borderColor='#CC2222'” onmouseleave=”this.style.background='none';this.style.color='#AAA';this.style.borderColor='#DCDCDC'”><i class=”ti ti-trash” style=”font-size:13px” aria-hidden=”true”></i></button>`:'';
+    return `<tr><td style=”font-weight:500”>${escHtml(i.titel||i.type||'')}</td><td style=”color:var(--text3)”>${i.ablauf||i.until||'—'}</td><td>${dlLink}</td>${admin?`<td>${delBtn}</td>`:''}</tr>`;
   }).join('');
-  const monthlyTotal=items.reduce((s,i)=>s+(parseFloat(i.monthly)||0),0);
-  const adminTh=isAdmin()?'<th></th>':'';
-  return `${header}
-    <div class="detail-panel" style="padding:0;overflow:hidden">
-      <table class="data-table">
-        <thead><tr><th>Fahrzeug</th><th>Versicherungsart</th><th>Versicherer</th><th>Policennr.</th><th style="text-align:right">Beitrag</th><th>Gültig bis</th>${adminTh}</tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
-    <div style="font-size:12px;color:var(--text2);padding:2px">Monatliche Gesamtprämie: <strong>${monthlyTotal} €</strong></div>`;
+  return titleRow+`<div class=”detail-panel” style=”padding:0;overflow:hidden”><div class=”data-table-wrap” style=”overflow-x:auto”><table class=”data-table”><thead><tr><th>Titel</th><th>Ablauf</th><th>Datei</th>${admin?'<th></th>':''}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 
+function openAddInsuranceModal(cid){
+  const html=`<div class=”modal” style=”width:440px;max-width:94vw”>
+    <div class=”modal-title”>Versicherung hochladen <button class=”modal-close” onclick=”closeModal()”><i class=”ti ti-x” aria-hidden=”true”></i></button></div>
+    <div class=”form-group”><label class=”form-label”>Titel *</label><input class=”form-input” id=”ins-titel” placeholder=”z. B. Haftpflichtversicherung 2026”></div>
+    <div class=”form-group”><label class=”form-label”>Ablaufdatum</label><input class=”form-input” type=”date” id=”ins-ablauf”></div>
+    <div class=”form-group”><label class=”form-label”>Datei *</label><input class=”form-input” type=”file” id=”ins-file” accept=”.pdf,.jpg,.jpeg,.png”></div>
+    <div id=”ins-err” style=”font-size:11px;color:var(--red);min-height:16px;margin-bottom:2px”></div>
+    <div class=”modal-actions”><button class=”btn btn-outline” onclick=”closeModal()”>Abbrechen</button><button class=”btn btn-gold” id=”ins-save” onclick=”saveInsuranceDoc('${cid}')”><i class=”ti ti-upload” aria-hidden=”true”></i> Hochladen</button></div>
+  </div>`;
+  document.getElementById('modal-container').innerHTML=`<div class=”modal-overlay” onclick=”if(event.target===this)closeModal()”>${html}</div>`;
+}
+
+async function saveInsuranceDoc(cid){
+  const titel=((document.getElementById('ins-titel')||{}).value||'').trim();
+  const ablauf=((document.getElementById('ins-ablauf')||{}).value||'');
+  const fileEl=document.getElementById('ins-file');
+  const file=fileEl&&fileEl.files[0];
+  const errEl=document.getElementById('ins-err');
+  const btn=document.getElementById('ins-save');
+  if(!titel){if(errEl)errEl.textContent='Bitte Titel ausfüllen.';return;}
+  if(!file){if(errEl)errEl.textContent='Bitte eine Datei auswählen.';return;}
+  if(btn)btn.disabled=true;
+  if(errEl)errEl.textContent='Wird hochgeladen…';
+  try{
+    const file_path=await uploadDocument(file,'versicherung');
+    const data={titel,file_path,ablauf};
+    const res=await api('/api/insurance',{method:'POST',body:JSON.stringify({company_id:cid,data})});
+    if(res&&res.ok){const saved=await res.json();state.insurances.push({...(saved.data||saved),id:saved.id,cid:saved.company_id||cid});closeModal();renderMain();}
+    else{if(errEl)errEl.textContent='Fehler beim Speichern.';if(btn)btn.disabled=false;}
+  }catch(e){if(errEl)errEl.textContent='Upload fehlgeschlagen: '+(e.message||e);if(btn)btn.disabled=false;}
+}
+
+async function deleteInsuranceDoc(id,cid){
+  if(!confirm('Versicherungsdokument wirklich löschen?'))return;
+  const res=await api('/api/insurance/'+id,{method:'DELETE'});
+  if(res&&res.ok)state.insurances=state.insurances.filter(x=>x.id!==id);
+  renderMain();
+}
+
+/* ===== LEASING ===== */
 function renderLeasingHTML(cid){
+  const admin=isAdmin();
   const items=state.leasings.filter(l=>l.cid===cid);
-  const addBtn=isAdmin()?`<button class="btn btn-gold" onclick="openModal('addLeasing','${cid}')"><i class="ti ti-plus" aria-hidden="true"></i> Hinzufügen</button>`:'';
-  const header=`<div class="section-title" style="display:flex;align-items:center;justify-content:space-between"><span><i class="ti ti-file-text" aria-hidden="true"></i> Leasingverträge (${items.length})</span>${addBtn}</div>`;
-  if(!items.length) return header+'<div class="empty-state"><div class="empty-icon"><i class="ti ti-file-text" aria-hidden="true"></i></div><div class="empty-text">Keine Leasingverträge vorhanden</div></div>';
+  const addBtn=admin?`<button onclick=”openAddLeasingModal('${cid}')” style=”display:inline-flex;align-items:center;gap:4px;padding:5px 11px;background:#333;color:#FFF;border:none;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;font-family:var(--font-sans);white-space:nowrap”><i class=”ti ti-upload” style=”font-size:12px” aria-hidden=”true”></i> Hochladen</button>`:'';
+  const titleRow=`<div style=”display:flex;align-items:center;gap:8px;margin-bottom:8px”><span style=”font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;display:flex;align-items:center;gap:6px;white-space:nowrap”><i class=”ti ti-file-text” aria-hidden=”true”></i> Leasing (${items.length})</span><div style=”flex:1;height:0.5px;background:var(--border)”></div>${addBtn}</div>`;
+  if(!items.length) return titleRow+`<div class=”detail-panel”><div class=”empty-state”><div class=”empty-icon”><i class=”ti ti-file-text” aria-hidden=”true”></i></div><div class=”empty-text”>Keine Leasing-Dokumente vorhanden</div></div></div>`;
   const rows=items.map(l=>{
-    const v=state.vehicles.find(vv=>vv.id===l.vid);
-    const plate=v?v.plate:'—';
-    const name=v?v.make+' '+v.model:'—';
-    const editBtn=isAdmin()?`<td><button class="btn btn-outline" style="font-size:10px;padding:2px 8px;height:auto" onclick="openModal('editLeasing','${l.id}')"><i class="ti ti-pencil" aria-hidden="true"></i></button></td>`:'<td></td>';
-    return `<tr>
-      <td><span style="font-size:12px;font-weight:500">${name}</span><br><span style="font-family:var(--font-mono);font-size:10px;color:var(--text3)">${plate}</span></td>
-      <td style="font-size:11px">${l.lessor}</td>
-      <td style="text-align:right;font-weight:500;white-space:nowrap">${l.monthly} €</td>
-      <td style="text-align:center">${l.duration} Mo.</td>
-      <td style="white-space:nowrap">${l.start}</td>
-      <td style="white-space:nowrap">${l.end}</td>
-      <td style="text-align:right;white-space:nowrap">${l.restKm>0?l.restKm.toLocaleString('de-DE')+' km':'—'}</td>
-      <td><span class="status-pill ${l.status==='active'?'pill-active':'pill-expired'}">${l.status==='active'?'Aktiv':'Ausgelaufen'}</span></td>
-      ${editBtn}
-    </tr>`;
+    const v=state.vehicles.find(vv=>vv.id===(l.vid||l.vehicle_id));
+    const vName=v?v.plate+' — '+v.make+' '+v.model:'—';
+    const dlLink=l.file_path?`<a href=”${getDocumentUrl(l.file_path)}” target=”_blank” rel=”noopener” style=”display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--gold);text-decoration:none”><i class=”ti ti-download” aria-hidden=”true”></i> Download</a>`:'—';
+    const delBtn=admin?`<button onclick=”deleteLeasingDoc('${l.id}','${cid}')” style=”display:inline-flex;align-items:center;gap:3px;padding:4px 9px;background:none;border:1px solid #DCDCDC;border-radius:5px;font-size:11px;color:#AAA;cursor:pointer;font-family:var(--font-sans)” onmouseenter=”this.style.background='#FFF0F0';this.style.color='#CC2222';this.style.borderColor='#CC2222'” onmouseleave=”this.style.background='none';this.style.color='#AAA';this.style.borderColor='#DCDCDC'”><i class=”ti ti-trash” style=”font-size:13px” aria-hidden=”true”></i></button>`:'';
+    return `<tr><td style=”font-weight:500”>${escHtml(l.titel||l.lessor||'')}</td><td style=”font-size:11px;color:var(--text3)”>${escHtml(vName)}</td><td>${dlLink}</td>${admin?`<td>${delBtn}</td>`:''}</tr>`;
   }).join('');
-  const activeMonthly=items.filter(l=>l.status==='active').reduce((s,l)=>s+(parseFloat(l.monthly)||0),0);
-  const adminTh=isAdmin()?'<th></th>':'';
-  return `${header}
-    <div class="detail-panel" style="padding:0;overflow:hidden">
-      <table class="data-table">
-        <thead><tr><th>Fahrzeug</th><th>Leasinggeber</th><th style="text-align:right">Rate/Mo.</th><th style="text-align:center">Laufzeit</th><th>Beginn</th><th>Ende</th><th style="text-align:right">Rest-KM</th><th>Status</th>${adminTh}</tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
-    ${activeMonthly>0?`<div style="font-size:12px;color:var(--text2);padding:2px">Aktive monatliche Leasingrate gesamt: <strong>${activeMonthly} €</strong></div>`:''}`;
+  return titleRow+`<div class=”detail-panel” style=”padding:0;overflow:hidden”><div class=”data-table-wrap” style=”overflow-x:auto”><table class=”data-table”><thead><tr><th>Titel</th><th>Fahrzeug</th><th>Datei</th>${admin?'<th></th>':''}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+
+function openAddLeasingModal(cid){
+  const vOpts=state.vehicles.filter(v=>v.cid===cid).map(v=>`<option value=”${v.id}”>${v.plate} — ${v.make} ${v.model}</option>`).join('');
+  const html=`<div class=”modal” style=”width:440px;max-width:94vw”>
+    <div class=”modal-title”>Leasing-Dokument hochladen <button class=”modal-close” onclick=”closeModal()”><i class=”ti ti-x” aria-hidden=”true”></i></button></div>
+    <div class=”form-group”><label class=”form-label”>Titel *</label><input class=”form-input” id=”leas-titel” placeholder=”z. B. Leasingvertrag Sprinter 2026”></div>
+    <div class=”form-group”><label class=”form-label”>Fahrzeug *</label><select class=”form-input” id=”leas-vid”>${vOpts||'<option value=””>Kein Fahrzeug vorhanden</option>'}</select></div>
+    <div class=”form-group”><label class=”form-label”>Datei *</label><input class=”form-input” type=”file” id=”leas-file” accept=”.pdf,.jpg,.jpeg,.png”></div>
+    <div id=”leas-err” style=”font-size:11px;color:var(--red);min-height:16px;margin-bottom:2px”></div>
+    <div class=”modal-actions”><button class=”btn btn-outline” onclick=”closeModal()”>Abbrechen</button><button class=”btn btn-gold” id=”leas-save” onclick=”saveLeasingDoc('${cid}')”><i class=”ti ti-upload” aria-hidden=”true”></i> Hochladen</button></div>
+  </div>`;
+  document.getElementById('modal-container').innerHTML=`<div class=”modal-overlay” onclick=”if(event.target===this)closeModal()”>${html}</div>`;
+}
+
+async function saveLeasingDoc(cid){
+  const titel=((document.getElementById('leas-titel')||{}).value||'').trim();
+  const vid=((document.getElementById('leas-vid')||{}).value||'');
+  const fileEl=document.getElementById('leas-file');
+  const file=fileEl&&fileEl.files[0];
+  const errEl=document.getElementById('leas-err');
+  const btn=document.getElementById('leas-save');
+  if(!titel){if(errEl)errEl.textContent='Bitte Titel ausfüllen.';return;}
+  if(!vid){if(errEl)errEl.textContent='Bitte Fahrzeug auswählen.';return;}
+  if(!file){if(errEl)errEl.textContent='Bitte eine Datei auswählen.';return;}
+  if(btn)btn.disabled=true;
+  if(errEl)errEl.textContent='Wird hochgeladen…';
+  try{
+    const file_path=await uploadDocument(file,'leasing');
+    const data={titel,file_path,vid};
+    const res=await api('/api/leasing',{method:'POST',body:JSON.stringify({vehicle_id:vid,data})});
+    if(res&&res.ok){const saved=await res.json();const v=state.vehicles.find(x=>x.id===vid);state.leasings.push({...(saved.data||saved),id:saved.id,vid:saved.vehicle_id||vid,cid:v?v.cid:cid});closeModal();renderMain();}
+    else{if(errEl)errEl.textContent='Fehler beim Speichern.';if(btn)btn.disabled=false;}
+  }catch(e){if(errEl)errEl.textContent='Upload fehlgeschlagen: '+(e.message||e);if(btn)btn.disabled=false;}
+}
+
+async function deleteLeasingDoc(id,cid){
+  if(!confirm('Leasing-Dokument wirklich löschen?'))return;
+  const res=await api('/api/leasing/'+id,{method:'DELETE'});
+  if(res&&res.ok)state.leasings=state.leasings.filter(x=>x.id!==id);
+  renderMain();
 }
 
 function renderNVHTML(vehicles){
@@ -1879,7 +1952,7 @@ async function saveCalAppointment(id,cid){
   if(!vid||!date||!ziel||!grund){alert('Bitte Fahrzeug, Datum, Zielort und Grund ausfüllen.');return;}
   if(id){
     const a=state.calendar.find(x=>x.id===id);if(!a)return;
-    const res=await api('/api/calendar/'+id+'?company_id='+cid,{method:'PUT',body:JSON.stringify({...a,vehicleId:vid,plate,date,ziel,grund})});
+    const res=await api('/api/calendar/'+id+'?company_id='+cid,{method:'PUT',body:JSON.stringify({...a,company_id:cid,vehicle_id:vid,plate,date,ziel,grund})});
     if(res&&res.ok){a.vehicleId=vid;a.plate=plate;a.date=date;a.ziel=ziel;a.grund=grund;}
   }else{
     const payload={company_id:cid,vehicle_id:vid,plate,date,ziel,grund,kundenStatus:null,kundenNachricht:'',alternativTermin:''};
@@ -2787,47 +2860,6 @@ function openModal(type,id=''){
       ${fbInfo}
       <div class="modal-actions">${delBtn}<button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" onclick="saveCalAppointment('${isEdit?id:''}','${cid}')"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button></div>
     </div>`;
-  } else if(type==='addInsurance'){
-    const vOpts=state.vehicles.filter(v=>v.cid===id).map(v=>`<option value="${v.id}">${v.plate} — ${v.make} ${v.model}</option>`).join('');
-    html=`<div class="modal"><div class="modal-title">Versicherung hinzufügen <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
-      <div class="form-group"><label class="form-label">Fahrzeug *</label><select class="form-input" id="ins-vid">${vOpts||'<option value="">Kein Fahrzeug vorhanden</option>'}</select></div>
-      <div class="form-group"><label class="form-label">Versicherungsart *</label><select class="form-input" id="ins-type"><option>Haftpflicht</option><option>Teilkasko</option><option>Vollkasko</option><option>Sonstiges</option></select></div>
-      <div class="form-group"><label class="form-label">Versicherer *</label><input class="form-input" id="ins-insurer" placeholder="z.B. Allianz"></div>
-      <div class="form-row"><div class="form-group"><label class="form-label">Policennummer</label><input class="form-input" id="ins-policy" style="font-family:var(--font-mono)" placeholder="z.B. HK-123456"></div><div class="form-group"><label class="form-label">Monatlicher Beitrag (€)</label><input class="form-input" id="ins-monthly" type="number" placeholder="0" min="0"></div></div>
-      <div class="form-group"><label class="form-label">Gültig bis</label><input class="form-input" id="ins-until" type="date"></div>
-      <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" onclick="saveInsurance('${id}')"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button></div></div>`;
-  } else if(type==='editInsurance'){
-    const ins=state.insurances.find(x=>x.id===id);
-    if(!ins){closeModal();return;}
-    const vOpts=state.vehicles.filter(v=>v.cid===ins.cid).map(v=>`<option value="${v.id}"${v.id===ins.vid?' selected':''}>${v.plate} — ${v.make} ${v.model}</option>`).join('');
-    const tOpts=['Haftpflicht','Teilkasko','Vollkasko','Sonstiges'].map(t=>`<option${ins.type===t?' selected':''}>${t}</option>`).join('');
-    html=`<div class="modal"><div class="modal-title">Versicherung bearbeiten <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
-      <div class="form-group"><label class="form-label">Fahrzeug</label><select class="form-input" id="ins-vid">${vOpts}</select></div>
-      <div class="form-group"><label class="form-label">Versicherungsart</label><select class="form-input" id="ins-type">${tOpts}</select></div>
-      <div class="form-group"><label class="form-label">Versicherer</label><input class="form-input" id="ins-insurer" value="${escHtml(ins.insurer||'')}"></div>
-      <div class="form-row"><div class="form-group"><label class="form-label">Policennummer</label><input class="form-input" id="ins-policy" value="${escHtml(ins.policy||'')}" style="font-family:var(--font-mono)"></div><div class="form-group"><label class="form-label">Monatlicher Beitrag (€)</label><input class="form-input" id="ins-monthly" type="number" value="${ins.monthly||0}"></div></div>
-      <div class="form-group"><label class="form-label">Gültig bis</label><input class="form-input" id="ins-until" type="date" value="${ins.until||''}"></div>
-      <div class="modal-actions"><button class="btn" style="color:var(--red);border:0.5px solid rgba(224,85,85,.3);background:var(--red-bg)" onclick="deleteInsurance('${id}','${ins.cid}')"><i class="ti ti-trash" aria-hidden="true"></i></button><button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" onclick="saveInsurance('${ins.cid}','${id}')"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button></div></div>`;
-  } else if(type==='addLeasing'){
-    const vOpts=state.vehicles.filter(v=>v.cid===id).map(v=>`<option value="${v.id}">${v.plate} — ${v.make} ${v.model}</option>`).join('');
-    html=`<div class="modal"><div class="modal-title">Leasingvertrag hinzufügen <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
-      <div class="form-group"><label class="form-label">Fahrzeug *</label><select class="form-input" id="leas-vid">${vOpts||'<option value="">Kein Fahrzeug vorhanden</option>'}</select></div>
-      <div class="form-group"><label class="form-label">Leasinggeber *</label><input class="form-input" id="leas-lessor" placeholder="z.B. Mercedes-Benz Leasing"></div>
-      <div class="form-row"><div class="form-group"><label class="form-label">Monatliche Rate (€)</label><input class="form-input" id="leas-monthly" type="number" placeholder="0" min="0"></div><div class="form-group"><label class="form-label">Laufzeit (Monate)</label><input class="form-input" id="leas-duration" type="number" placeholder="36"></div></div>
-      <div class="form-row"><div class="form-group"><label class="form-label">Beginn</label><input class="form-input" id="leas-start" type="date"></div><div class="form-group"><label class="form-label">Ende</label><input class="form-input" id="leas-end" type="date"></div></div>
-      <div class="form-row"><div class="form-group"><label class="form-label">Rest-KM</label><input class="form-input" id="leas-restkm" type="number" placeholder="0"></div><div class="form-group"><label class="form-label">Status</label><select class="form-input" id="leas-status"><option value="active">Aktiv</option><option value="expired">Ausgelaufen</option></select></div></div>
-      <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" onclick="saveLeasing('${id}')"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button></div></div>`;
-  } else if(type==='editLeasing'){
-    const l=state.leasings.find(x=>x.id===id);
-    if(!l){closeModal();return;}
-    const vOpts=state.vehicles.filter(v=>v.cid===l.cid).map(v=>`<option value="${v.id}"${v.id===l.vid?' selected':''}>${v.plate} — ${v.make} ${v.model}</option>`).join('');
-    html=`<div class="modal"><div class="modal-title">Leasingvertrag bearbeiten <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
-      <div class="form-group"><label class="form-label">Fahrzeug</label><select class="form-input" id="leas-vid">${vOpts}</select></div>
-      <div class="form-group"><label class="form-label">Leasinggeber</label><input class="form-input" id="leas-lessor" value="${escHtml(l.lessor||'')}"></div>
-      <div class="form-row"><div class="form-group"><label class="form-label">Monatliche Rate (€)</label><input class="form-input" id="leas-monthly" type="number" value="${l.monthly||0}"></div><div class="form-group"><label class="form-label">Laufzeit (Monate)</label><input class="form-input" id="leas-duration" type="number" value="${l.duration||0}"></div></div>
-      <div class="form-row"><div class="form-group"><label class="form-label">Beginn</label><input class="form-input" id="leas-start" type="date" value="${l.start||''}"></div><div class="form-group"><label class="form-label">Ende</label><input class="form-input" id="leas-end" type="date" value="${l.end||''}"></div></div>
-      <div class="form-row"><div class="form-group"><label class="form-label">Rest-KM</label><input class="form-input" id="leas-restkm" type="number" value="${l.restKm||0}"></div><div class="form-group"><label class="form-label">Status</label><select class="form-input" id="leas-status"><option value="active"${l.status==='active'?' selected':''}>Aktiv</option><option value="expired"${l.status==='expired'?' selected':''}>Ausgelaufen</option></select></div></div>
-      <div class="modal-actions"><button class="btn" style="color:var(--red);border:0.5px solid rgba(224,85,85,.3);background:var(--red-bg)" onclick="deleteLeasing('${id}','${l.cid}')"><i class="ti ti-trash" aria-hidden="true"></i></button><button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" onclick="saveLeasing('${l.cid}','${id}')"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button></div></div>`;
   }
   container.innerHTML=`<div class="modal-overlay" onclick="handleOverlayClick(event,'${type}')">${html}</div>`;
 }
@@ -2844,60 +2876,7 @@ async function saveAvailability(vid){
 }
 function closeModal(){document.getElementById('modal-container').innerHTML='';}
 function cancelDamage(){state.pendingMarkers=[];closeModal();}
-async function saveInsurance(cid,id){
-  const vid=document.getElementById('ins-vid').value;
-  const type=document.getElementById('ins-type').value;
-  const insurer=document.getElementById('ins-insurer').value.trim();
-  const policy=document.getElementById('ins-policy').value.trim();
-  const monthly=parseFloat(document.getElementById('ins-monthly').value)||0;
-  const until=document.getElementById('ins-until').value;
-  if(!insurer)return alert('Versicherer erforderlich');
-  const data={vid,type,insurer,policy,monthly,until};
-  if(id){
-    const res=await api('/api/insurance/'+id,{method:'PUT',body:JSON.stringify({data})});
-    if(res&&res.ok){const ins=state.insurances.find(x=>x.id===id);if(ins)Object.assign(ins,data);}
-    else{alert('Fehler beim Speichern');return;}
-  }else{
-    const res=await api('/api/insurance',{method:'POST',body:JSON.stringify({company_id:cid,data})});
-    if(res&&res.ok){const saved=await res.json();state.insurances.push({...(saved.data||saved),id:saved.id,cid:saved.company_id||cid});}
-    else{alert('Fehler beim Speichern');return;}
-  }
-  closeModal();renderMain();
-}
-async function deleteInsurance(id,cid){
-  if(!confirm('Versicherung wirklich löschen?'))return;
-  const res=await api('/api/insurance/'+id,{method:'DELETE'});
-  if(res&&res.ok)state.insurances=state.insurances.filter(x=>x.id!==id);
-  closeModal();renderMain();
-}
-async function saveLeasing(cid,id){
-  const vid=document.getElementById('leas-vid').value;
-  const lessor=document.getElementById('leas-lessor').value.trim();
-  const monthly=parseFloat(document.getElementById('leas-monthly').value)||0;
-  const duration=parseInt(document.getElementById('leas-duration').value)||0;
-  const start=document.getElementById('leas-start').value;
-  const end=document.getElementById('leas-end').value;
-  const restKm=parseInt(document.getElementById('leas-restkm').value)||0;
-  const status=document.getElementById('leas-status').value;
-  if(!lessor)return alert('Leasinggeber erforderlich');
-  const data={vid,lessor,monthly,duration,start,end,restKm,status};
-  if(id){
-    const res=await api('/api/leasing/'+id,{method:'PUT',body:JSON.stringify({data})});
-    if(res&&res.ok){const l=state.leasings.find(x=>x.id===id);if(l)Object.assign(l,data);}
-    else{alert('Fehler beim Speichern');return;}
-  }else{
-    const res=await api('/api/leasing',{method:'POST',body:JSON.stringify({vehicle_id:vid,data})});
-    if(res&&res.ok){const saved=await res.json();const v=state.vehicles.find(x=>x.id===vid);state.leasings.push({...(saved.data||saved),id:saved.id,vid:saved.vehicle_id||vid,cid:v?v.cid:cid});}
-    else{alert('Fehler beim Speichern');return;}
-  }
-  closeModal();renderMain();
-}
-async function deleteLeasing(id,cid){
-  if(!confirm('Leasingvertrag wirklich löschen?'))return;
-  const res=await api('/api/leasing/'+id,{method:'DELETE'});
-  if(res&&res.ok)state.leasings=state.leasings.filter(x=>x.id!==id);
-  closeModal();renderMain();
-}
+
 function toggleGroup(cid,gi){
   const key=cid+'|'+gi;
   state.collapsedGroups[key]=!state.collapsedGroups[key];
