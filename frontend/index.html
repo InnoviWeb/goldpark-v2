@@ -676,11 +676,10 @@ async function loadAllData(role, cid) {
   const cids = (role === 'kunde' && cid) ? [cid] : state.companies.map(c => c.id);
 
   await Promise.all(cids.map(async cidItem => {
-    const [vRes, invRes, calRes, tripRes, insRes, blkRes, angRes, drvRes] = await Promise.all([
+    const [vRes, invRes, calRes, insRes, blkRes, angRes, drvRes] = await Promise.all([
       api(`/api/vehicles?company_id=${cidItem}`),
       api(`/api/invoices?company_id=${cidItem}`),
       api(`/api/calendar?company_id=${cidItem}`),
-      api(`/api/trips?company_id=${cidItem}`),
       api(`/api/insurance?company_id=${cidItem}`),
       api(`/api/blocked-slots?company_id=${cidItem}`),
       api(`/api/angebote?company_id=${cidItem}`),
@@ -697,8 +696,7 @@ async function loadAllData(role, cid) {
       state.vehicles.push(...vehs);
     }
     if (invRes && invRes.ok) { const d = await invRes.json(); state.invoices.push(...d.map(r=>({...(r.data||{}),id:r.id,cid:r.company_id}))); }
-    if (calRes && calRes.ok) { const d = await calRes.json(); state.calendar.push(...d); }
-    if (tripRes && tripRes.ok) { const d = await tripRes.json(); state.trips.push(...d); }
+    if (calRes && calRes.ok) { const d = await calRes.json(); state.calendar.push(...d.map(r=>({...r,cid:r.cid||r.company_id,vehicleId:r.vehicleId||r.vehicle_id}))); }
     if (insRes && insRes.ok) { const d = await insRes.json(); state.insurances.push(...d); }
     if (blkRes && blkRes.ok) { const d = await blkRes.json(); state.blockedSlots.push(...d); }
     if (angRes && angRes.ok) { const d = await angRes.json(); state.angebote.push(...d.map(r=>({...(r.data||{}),id:r.id,cid:r.company_id}))); }
@@ -1350,7 +1348,7 @@ function renderMain(){
           ${fleetStatusHTML(vehicles,company.id)}
           ${driverLicenseHTML(company.id,_dlClick)}
         </div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;flex:1;min-height:0">
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;flex:1;min-height:0">
           <div class="fleet-tile" style="box-shadow:0 1px 3px rgba(0,0,0,.05)" onclick="selectSubMenu('invoices')">
             <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
               <div style="display:flex;align-items:center;gap:8px">
@@ -1358,15 +1356,6 @@ function renderMain(){
                 <span style="font-size:15px;font-weight:500;color:var(--text)">Offene Rechnungen</span>
               </div>
               <span style="font-size:32px;font-weight:600;color:var(--text);line-height:1.1">${state.invoices.filter(i=>i.cid===company.id&&i.status!=='paid').length}</span>
-            </div>
-          </div>
-          <div class="fleet-tile" style="box-shadow:0 1px 3px rgba(0,0,0,.05)" onclick="openFahrtenbuchModal('${company.id}')">
-            <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
-              <div style="display:flex;align-items:center;gap:8px">
-                <i class="ti ti-notebook" style="font-size:26px;color:#1A1A1A;line-height:1" aria-hidden="true"></i>
-                <span style="font-size:15px;font-weight:500;color:var(--text)">Fahrtenbuch</span>
-              </div>
-              <span style="font-size:11px;color:var(--text3)">${state.trips.filter(t=>t.cid===company.id).length} Fahrten</span>
             </div>
           </div>
           <div class="fleet-tile" style="box-shadow:0 1px 3px rgba(0,0,0,.05)" onclick="openLivedatenModal('${company.id}')">
@@ -1412,7 +1401,7 @@ function renderSavingsTable(cid){ return ''; }
 async function uploadDocument(file,folder){
   const path=folder+'/'+Date.now()+'_'+file.name;
   const {data,error}=await sbClient.storage.from('documents').upload(path,file,{upsert:false});
-  if(error)throw error;
+  if(error)throw new Error(error.message||String(error));
   return path;
 }
 function getDocumentUrl(path){
@@ -1668,7 +1657,7 @@ async function confirmAngebotFreigabe(angebotId,cid){
     Object.assign(a,{status:'freigegeben',freigabe_datum:date,freigabe_uhrzeit:time});
     const calPayload={company_id:cid,date,ziel:'Angebotstermin',grund:a.titel||'Angebot',kunden_status:'ausstehend'};
     const calRes=await api('/api/calendar?company_id='+cid,{method:'POST',body:JSON.stringify(calPayload)});
-    if(calRes&&calRes.ok){const saved=await calRes.json();state.calendar.push(saved);}
+    if(calRes&&calRes.ok){const saved=await calRes.json();state.calendar.push({...saved,cid:saved.cid||saved.company_id,vehicleId:saved.vehicleId||saved.vehicle_id});}
     closeModal();reloadAngeboteSection(cid);
   }else{
     if(errEl)errEl.textContent='Fehler beim Speichern.';
@@ -1796,14 +1785,6 @@ async function deleteVehicle(vid,cid){
   if(res&&res.ok){state.vehicles=state.vehicles.filter(x=>x.id!==vid);if(state.selectedVehicle===vid)state.selectedVehicle=null;}
   renderMain();
 }
-async function deleteDriver(did,cid){
-  const d=state.drivers.find(x=>x.id===did);
-  const label=d?d.name:did;
-  if(!confirm(label+' wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.'))return;
-  const res=await api('/api/drivers/'+did,{method:'DELETE'});
-  if(res&&res.ok)state.drivers=state.drivers.filter(x=>x.id!==did);
-  closeModal();renderMain();
-}
 async function deleteCalEntry(aid,cid){
   const a=state.calendar.find(x=>x.id===aid);
   const label=a?'Termin am '+a.date+' ('+a.grund+')':'Termin';
@@ -1811,11 +1792,6 @@ async function deleteCalEntry(aid,cid){
   const res=await api('/api/calendar/'+aid,{method:'DELETE'});
   if(res&&res.ok)state.calendar=state.calendar.filter(x=>x.id!==aid);
   renderMain();
-}
-async function deleteTrip(tid,cid){
-  if(!confirm('Fahrt wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.'))return;
-  const res=await api('/api/trips/'+tid,{method:'DELETE'});
-  if(res&&res.ok){state.trips=state.trips.filter(x=>x.id!==tid);document.getElementById('fahrtenbuch-modal-ol')?.remove();openFahrtenbuchModal(cid);}
 }
 async function deleteDamage(did,vid){
   const v=state.vehicles.find(x=>x.id===vid);
@@ -1997,7 +1973,7 @@ async function saveCalAppointment(id,cid){
   }else{
     const payload={company_id:cid,vehicle_id:vid,plate,date,ziel,grund,kundenStatus:null,kundenNachricht:'',alternativTermin:''};
     const res=await api('/api/calendar?company_id='+cid,{method:'POST',body:JSON.stringify(payload)});
-    if(res&&res.ok){const saved=await res.json();state.calendar.push(saved);}
+    if(res&&res.ok){const saved=await res.json();state.calendar.push({...saved,cid:saved.cid||saved.company_id,vehicleId:saved.vehicleId||saved.vehicle_id});}
   }
   const dObj=new Date(date);if(!isNaN(dObj)){state.calYear=dObj.getFullYear();state.calMonth=dObj.getMonth();}
   closeModal();renderMain();refreshMasterCalendarIfOpen();
@@ -2210,7 +2186,7 @@ async function saveMasterCalAppointment(){
   if(!vid||!date||!ziel||!grund){alert('Bitte Fahrzeug, Datum, Zielort und Grund ausfüllen.');return;}
   const payload={company_id:cid,vehicle_id:vid,plate,date,uhrzeit:uhrzeit||'',ziel,grund,kundenStatus:null,kundenNachricht:'',alternativTermin:''};
   const res=await api('/api/calendar?company_id='+cid,{method:'POST',body:JSON.stringify(payload)});
-  if(res&&res.ok){const saved=await res.json();state.calendar.push(saved);}
+  if(res&&res.ok){const saved=await res.json();state.calendar.push({...saved,cid:saved.cid||saved.company_id,vehicleId:saved.vehicleId||saved.vehicle_id});}
   const dObj=new Date(date);if(!isNaN(dObj)){masterCalState.year=dObj.getFullYear();masterCalState.month=dObj.getMonth();state.calYear=dObj.getFullYear();state.calMonth=dObj.getMonth();}
   closeModal();renderMain();refreshMasterCalendarIfOpen();
 }
@@ -2992,9 +2968,11 @@ async function saveDriver(cid,existingId=''){
   closeModal();renderMain();openModal('driverLicense',cid);
 }
 async function deleteDriver(did,cid){
-  if(!confirm('Fahrer löschen?'))return;
+  const d=state.drivers.find(x=>x.id===did);
+  const label=d?d.name:did;
+  if(!confirm(label+' wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.'))return;
   const res=await api('/api/drivers/'+did,{method:'DELETE'});
-  if(res&&res.ok){state.drivers=state.drivers.filter(d=>d.id!==did);}
+  if(res&&res.ok){state.drivers=state.drivers.filter(x=>x.id!==did);}
   closeModal();renderMain();openModal('driverLicense',cid);
 }
 function toggleWechselfahrer(){
@@ -3512,130 +3490,8 @@ function ldResetSelection() {
   _renderLiveList(vehicles);
 }
 
-// ===== FAHRTENBUCH =====
-function _tripDateFmt(ds){return ds?ds.split('-').reverse().join('.'):'—';}
-function _tripDriverName(t){
-  const dr=state.drivers.find(d=>d.id===t.driverId);
-  if(!dr)return '—';
-  return (dr.vorname&&dr.nachname)?dr.vorname+' '+dr.nachname:dr.name;
-}
-function openFahrtenbuchModal(cid){
-  const company=state.companies.find(c=>c.id===cid);
-  if(!company)return;
-  const trips=state.trips.filter(t=>t.cid===cid).sort((a,b)=>new Date(b.date)-new Date(a.date));
-  const gesamtKm=trips.reduce((s,t)=>s+(t.km||0),0);
-  const thS='text-align:left;font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;padding:8px 11px;border-bottom:1px solid #E0E0E0;white-space:nowrap;position:sticky;top:0;background:#FAFAFA;z-index:1';
-  const tdS='padding:9px 11px;border-bottom:0.5px solid #F0F0F0;font-size:12px;vertical-align:top';
-  const admin=isAdmin();
-  const rows=trips.length===0
-    ?`<tr><td colspan="${admin?10:9}" style="text-align:center;padding:28px;color:#AAA;font-size:13px">Keine Fahrten vorhanden.</td></tr>`
-    :trips.map(t=>{
-      const v=state.vehicles.find(v=>v.id===t.vid);
-      const delCell=admin?`<td style="${tdS}"><button onclick="deleteTrip('${t.id}','${cid}')" style="background:none;border:none;cursor:pointer;color:#CCC;font-size:15px;padding:2px 5px;border-radius:3px;line-height:1" title="Fahrt löschen" onmouseenter="this.style.color='#CC2222'" onmouseleave="this.style.color='#CCC'"><i class="ti ti-trash" style="font-size:13px" aria-hidden="true"></i></button></td>`:'';
-      return `<tr>
-        <td style="${tdS};color:var(--text3);white-space:nowrap">${_tripDateFmt(t.date)}</td>
-        <td style="${tdS};font-family:var(--font-mono);color:var(--text);white-space:nowrap">${v?v.plate:'—'}</td>
-        <td style="${tdS};color:var(--text);white-space:nowrap">${v?v.make+' '+v.model:'—'}</td>
-        <td style="${tdS};color:var(--text);white-space:nowrap">${escHtml(_tripDriverName(t))}</td>
-        <td style="${tdS};color:var(--text);white-space:nowrap">${escHtml(t.start||'')} → ${escHtml(t.ziel||'')}</td>
-        <td style="${tdS};color:var(--text)">${escHtml(t.zweck||'')}</td>
-        <td style="${tdS};color:var(--text3);white-space:nowrap">${escHtml(t.fahrzeit||'—')}</td>
-        <td style="${tdS};font-weight:600;color:var(--text);text-align:right;white-space:nowrap">${(t.km||0).toLocaleString('de-DE')} km</td>
-        <td style="${tdS};font-family:var(--font-mono);color:var(--text3);text-align:right;white-space:nowrap">${(t.kmStand||0).toLocaleString('de-DE')} km</td>
-        ${delCell}
-      </tr>`;
-    }).join('');
-  const addBtn=isAdmin()
-    ?`<button onclick="openTripFormModal('${cid}')" style="display:inline-flex;align-items:center;gap:5px;background:#333;color:#FFF;border:1px solid #333;border-radius:7px;padding:6px 13px;font-size:12px;font-weight:500;cursor:pointer;font-family:var(--font-sans);transition:background .15s;line-height:1" onmouseenter="this.style.background='#1A1A1A'" onmouseleave="this.style.background='#333'"><i class="ti ti-plus" style="font-size:13px" aria-hidden="true"></i> Fahrt hinzufügen</button>`
-    :`<span class="readonly-badge"><i class="ti ti-eye" style="font-size:10px" aria-hidden="true"></i> Nur-Lesen</span>`;
-  const ol=document.createElement('div');
-  ol.id='fahrtenbuch-modal-ol';
-  ol.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:600';
-  ol.innerHTML=`<div style="background:#FFF;border-radius:10px;width:88vw;max-width:1200px;max-height:84vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.18)">
-    <div style="padding:16px 20px;border-bottom:1px solid #E0E0E0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-      <div style="display:flex;align-items:center;gap:9px">
-        <i class="ti ti-notebook" style="font-size:20px;color:var(--gold)" aria-hidden="true"></i>
-        <span style="font-size:15px;font-weight:600;color:#1A1A1A">Fahrtenbuch — ${escHtml(company.name)}</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px">
-        ${addBtn}
-        <button onclick="document.getElementById('fahrtenbuch-modal-ol').remove()" style="background:none;border:none;cursor:pointer;font-size:22px;color:#999;padding:0 6px;border-radius:4px;line-height:1;font-family:var(--font-sans)" onmouseenter="this.style.color='#333'" onmouseleave="this.style.color='#999'">×</button>
-      </div>
-    </div>
-    <div style="flex:1;overflow-y:auto;max-height:calc(84vh - 110px)">
-      <table style="width:100%;border-collapse:collapse;font-size:12px">
-        <thead><tr>
-          <th style="${thS}">Datum</th>
-          <th style="${thS}">Kennzeichen</th>
-          <th style="${thS}">Fahrzeug</th>
-          <th style="${thS}">Fahrer</th>
-          <th style="${thS}">Strecke</th>
-          <th style="${thS.replace('white-space:nowrap;','')}">Beschreibung / Zweck</th>
-          <th style="${thS}">Fahrzeit</th>
-          <th style="${thS};text-align:right">Gefahrene km</th>
-          <th style="${thS};text-align:right">KM-Stand nach Fahrt</th>
-          ${admin?`<th style="${thS}"></th>`:''}
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
-    <div style="padding:12px 20px;border-top:1px solid #E0E0E0;display:flex;justify-content:flex-end;align-items:center;gap:12px;flex-shrink:0;background:#FAFAFA">
-      <span style="font-size:12px;color:var(--text3)">${trips.length} Fahrt${trips.length!==1?'en':''} · Gesamt:</span>
-      <span style="font-size:16px;font-weight:700;color:var(--text)">${gesamtKm.toLocaleString('de-DE')} km</span>
-    </div>
-  </div>`;
-  ol.addEventListener('click',e=>{if(e.target===ol)ol.remove();});
-  document.getElementById('fahrtenbuch-modal-ol')?.remove();
-  document.body.appendChild(ol);
-}
-function openTripFormModal(cid){
-  if(!isAdmin())return;
-  const vehicles=state.vehicles.filter(v=>v.cid===cid);
-  const drivers=state.drivers.filter(d=>d.cid===cid);
-  const vOpts=vehicles.map(v=>`<option value="${v.id}">${v.plate} — ${v.make} ${v.model}</option>`).join('');
-  const dOpts='<option value="">— Kein Fahrer —</option>'+drivers.map(d=>`<option value="${d.id}">${(d.vorname&&d.nachname)?d.vorname+' '+d.nachname:d.name}</option>`).join('');
-  const ol=document.createElement('div');
-  ol.id='trip-form-ol';
-  ol.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:700';
-  ol.innerHTML=`<div class="modal" style="width:480px">
-    <div class="modal-title">Fahrt hinzufügen<button class="modal-close" onclick="document.getElementById('trip-form-ol').remove()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Fahrzeug *</label><select class="form-input" id="trip-vid">${vOpts}</select></div>
-      <div class="form-group"><label class="form-label">Fahrer</label><select class="form-input" id="trip-driver">${dOpts}</select></div>
-    </div>
-    <div class="form-group"><label class="form-label">Datum *</label><input class="form-input" id="trip-date" type="date" value="${TODAY.toISOString().slice(0,10)}"></div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Start *</label><input class="form-input" id="trip-start" type="text" placeholder="z.B. Frankfurt"></div>
-      <div class="form-group"><label class="form-label">Ziel *</label><input class="form-input" id="trip-ziel" type="text" placeholder="z.B. Darmstadt"></div>
-    </div>
-    <div class="form-group"><label class="form-label">Beschreibung / Zweck</label><input class="form-input" id="trip-zweck" type="text" placeholder="z.B. Auslieferung Kunde Schmidt"></div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Fahrzeit</label><input class="form-input" id="trip-fahrzeit" type="text" placeholder="z.B. 1h 25min"></div>
-      <div class="form-group"><label class="form-label">Gefahrene km</label><input class="form-input" id="trip-km" type="number" min="0" placeholder="z.B. 68"></div>
-    </div>
-    <div class="form-group"><label class="form-label">KM-Stand nach Fahrt</label><input class="form-input" id="trip-kmstand" type="number" min="0" placeholder="z.B. 87400"></div>
-    <div style="font-size:11px;color:var(--red);min-height:16px" id="trip-form-error"></div>
-    <div class="modal-actions">
-      <button class="btn btn-outline" onclick="document.getElementById('trip-form-ol').remove()">Abbrechen</button>
-      <button class="btn btn-gold" onclick="saveTripForm('${cid}')"><i class="ti ti-device-floppy" aria-hidden="true"></i> Speichern</button>
-    </div>
-  </div>`;
-  ol.addEventListener('click',e=>{if(e.target===ol)ol.remove();});
-  document.getElementById('trip-form-ol')?.remove();
-  document.body.appendChild(ol);
-}
-async function saveTripForm(cid){
-  const val=id=>document.getElementById(id).value.trim();
-  const vid=val('trip-vid'),date=val('trip-date'),start=val('trip-start'),ziel=val('trip-ziel');
-  const err=document.getElementById('trip-form-error');
-  if(!vid||!date||!start||!ziel){err.textContent='Bitte Fahrzeug, Datum, Start und Ziel angeben.';return;}
-  const payload={cid,vid,driverId:val('trip-driver')||null,date,start,ziel,zweck:val('trip-zweck'),fahrzeit:val('trip-fahrzeit'),km:parseFloat(val('trip-km'))||0,kmStand:parseInt(val('trip-kmstand'),10)||0};
-  const res=await api('/api/trips?company_id='+cid,{method:'POST',body:JSON.stringify(payload)});
-  if(res&&res.ok){const saved=await res.json();state.trips.push(saved);}
-  document.getElementById('trip-form-ol')?.remove();
-  openFahrtenbuchModal(cid);
-  renderMain();
-}
+
+function openFahrtenbuchModal(cid){}
 
 function openAngebotTerminInfo(angId){
   const a=state.angebote.find(x=>x.id===angId);if(!a)return;
