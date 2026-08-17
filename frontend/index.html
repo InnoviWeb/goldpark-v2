@@ -1835,21 +1835,21 @@ function calStatusLabel(s){return s==='green'?'Freigegeben':s==='yellow'?'Rückm
 function calEscAttr(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function calStatusDot(s){const c=s==='green'?'#2A7A4A':s==='yellow'?'#E0A800':'#CC2222';return `<span style="width:8px;height:8px;border-radius:50%;background:${c};display:inline-block"></span>`;}
 function calShiftMonth(delta){
-  if(state.calYear==null){state.calYear=2026;state.calMonth=5;}
+  if(state.calYear==null){const _n=new Date();state.calYear=_n.getFullYear();state.calMonth=_n.getMonth();}
   let m=state.calMonth+delta,y=state.calYear;
   while(m<0){m+=12;y--;}while(m>11){m-=12;y++;}
   state.calMonth=m;state.calYear=y;renderMain();
 }
 function renderCalendarHTML(cid){
-  if(state.calYear==null){state.calYear=2026;state.calMonth=5;}
+  if(state.calYear==null){const _n=new Date();state.calYear=_n.getFullYear();state.calMonth=_n.getMonth();}
   const year=state.calYear,month=state.calMonth,admin=isAdmin();
   const pad=n=>String(n).padStart(2,'0');
   const monthKey=`${year}-${pad(month+1)}`;
   const appts=state.calendar.filter(a=>a.cid===cid);
-  const byDate={};appts.forEach(a=>{(byDate[a.date]=byDate[a.date]||[]).push(a);});
+  const byDate={};appts.forEach(a=>{const dk=(a.date||'').slice(0,10);(byDate[dk]=byDate[dk]||[]).push(a);});
   const daysInMonth=new Date(year,month+1,0).getDate();
   let startWd=new Date(year,month,1).getDay();startWd=(startWd+6)%7;
-  const todayStr='2026-06-09';
+  const _td=new Date();const todayStr=`${_td.getFullYear()}-${pad(_td.getMonth()+1)}-${pad(_td.getDate())}`;
   let cells='';
   for(let i=0;i<startWd;i++)cells+=`<div class="cal-cell cal-empty${i>=5?' cal-weekend':''}"></div>`;
   for(let d=1;d<=daysInMonth;d++){
@@ -1877,7 +1877,8 @@ function renderCalendarHTML(cid){
     const blkChips=(!dayBlocked&&blkSlots.length)?blkSlots.map(u=>`<div class="cal-blockslot">🚫 ${u} gesperrt${admin?`<button onclick="event.stopPropagation();removeBlock('${cid}','${ds}','${u}')" title="Freigeben">×</button>`:''}</div>`).join(''):'';
     const cellClass=['cal-cell',admin?'cal-admin':'',isWe?'cal-weekend':'',ds===todayStr?'cal-today':'',dayBlocked?'cal-blocked':''].filter(Boolean).join(' ');
     const onclick=admin?` onclick="openCalAdd('${cid}','${ds}')"`:'';
-    cells+=`<div class="${cellClass}"${onclick}><div class="cal-daynum"><span>${d}</span>${admin?'<span class="cal-addhint"><i class="ti ti-plus" aria-hidden="true"></i></span>':''}</div>${blkMarker}${chips}${angChips}${blkChips}</div>`;
+    const apptDot=dayAppts.length?`<span style="width:5px;height:5px;border-radius:50%;background:var(--gold);display:inline-block;flex-shrink:0;margin-left:2px;margin-bottom:1px"></span>`:'';
+    cells+=`<div class="${cellClass}"${onclick}><div class="cal-daynum"><span>${d}</span>${apptDot}${admin?'<span class="cal-addhint"><i class="ti ti-plus" aria-hidden="true"></i></span>':''}</div>${blkMarker}${chips}${angChips}${blkChips}</div>`;
   }
   const addBtn=admin?`<button class="btn btn-outline" style="margin-left:auto" onclick="openBlockModal('${cid}','')"><i class="ti ti-lock" aria-hidden="true"></i> Tag/Zeit blockieren</button><button class="btn btn-gold" onclick="openCalAdd('${cid}','')"><i class="ti ti-plus" aria-hidden="true"></i> Termin hinzufügen</button>`:`<span class="readonly-badge" style="margin-left:auto"><i class="ti ti-eye" style="font-size:10px" aria-hidden="true"></i> Termine bewerten</span>`;
   const navbar=`<div class="cal-navbar">
@@ -2034,8 +2035,8 @@ function openMasterCalendar(){
   if(!isAdmin())return;
   masterCalState.open=true;
   if(masterCalState.year==null){
-    masterCalState.year=(state.calYear!=null?state.calYear:2026);
-    masterCalState.month=(state.calMonth!=null?state.calMonth:5);
+    const _mn=new Date();masterCalState.year=(state.calYear!=null?state.calYear:_mn.getFullYear());
+    masterCalState.month=(state.calMonth!=null?state.calMonth:_mn.getMonth());
   }
   renderMasterCalendarView();
 }
