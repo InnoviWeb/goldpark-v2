@@ -1252,7 +1252,7 @@ function buildVehicleSection(vehicles,company){
           ${reminders.length===0&&dmg.length===0?`<div class="reminder-item ok"><i class="ti ti-check" style="font-size:10px" aria-hidden="true"></i>Alles in Ordnung</div>`:''}
         </div>
         ${isAdmin()?`<select class="gruppe-select" onclick="event.stopPropagation()" onchange="moveVehicleGroup('${v.id}',this.value)">${gOpts}</select>`:''}
-        ${isAdmin()?`<button onclick="event.stopPropagation();deleteVehicle('${v.id}','${cid}')" style="width:100%;margin-top:5px;background:rgba(255,68,68,0.15);border:1px solid rgba(255,68,68,0.4);border-radius:6px;padding:4px 8px;cursor:pointer;color:#ff4444;display:flex;align-items:center;justify-content:center;gap:4px;font-family:var(--font-sans)"><i class="ti ti-x" style="color:#ff4444;font-size:14px;" aria-hidden="true"></i></button>`:''}
+        ${isAdmin()?`<button onclick="event.stopPropagation();deleteVehicle('${v.id}','${cid}')" style="width:100%;margin-top:5px;background:rgba(255,68,68,0.15);border:1px solid rgba(255,68,68,0.4);border-radius:6px;padding:4px 8px;cursor:pointer;color:#ff4444;font-size:14px;font-weight:bold;display:flex;align-items:center;justify-content:center">✕</button>`:''}
       </div>`;
     }).join('');
     return `<div>
@@ -1431,7 +1431,7 @@ function renderInvoicesHTML(cid){
     const isPaid=i.status==='bezahlt'||i.status==='paid';
     const statusCell=admin?`<div style="display:inline-flex;gap:3px">${['offen','bezahlt'].map(v=>{const active=isPaid?(v==='bezahlt'):(v==='offen');return `<button class="inv-status-btn iv-${v==='bezahlt'?'paid':'open'}${active?' active':''}"${active?'':` onclick="setInvoiceStatus('${i.id}','${cid}','${v}')"`}>${v==='bezahlt'?'Bezahlt':'Offen'}</button>`;}).join('')}</div>`:`<span class="status-pill ${isPaid?'pill-paid':'pill-open'}">${isPaid?'Bezahlt':'Offen'}</span>`;
     const dlLink=i.file_path?`<button onclick="openDocPreview(this.dataset.url,this.dataset.titel)" data-url="${i.file_path}" data-titel="${escHtml(i.titel||'')}" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--gold);background:none;border:none;cursor:pointer;font-family:var(--font-sans)"><i class="ti ti-eye" aria-hidden="true"></i> Vorschau</button>`:'—';
-    const delBtn=admin?`<button onclick="deleteInvoice('${i.id}','${cid}')" style="display:inline-flex;align-items:center;background:rgba(255,68,68,0.15);border:1px solid rgba(255,68,68,0.4);border-radius:6px;padding:4px 8px;cursor:pointer;color:#ff4444"><i class="ti ti-x" style="color:#ff4444;font-size:14px;"></i></button>`:'';
+    const delBtn=admin?`<button onclick="deleteInvoice('${i.id}','${cid}')" style="display:flex;align-items:center;justify-content:center;background:rgba(255,68,68,0.15);border:1px solid rgba(255,68,68,0.4);border-radius:6px;padding:4px 8px;cursor:pointer;color:#ff4444;font-size:14px;font-weight:bold">✕</button>`:'';
     return `<tr><td style="font-weight:500">${escHtml(i.titel||'')}</td><td>${statusCell}</td><td>${dlLink}</td>${admin?`<td>${delBtn}</td>`:''}</tr>`;
   }).join('');
   return titleRow+`<div class="detail-panel" style="padding:0;overflow:hidden"><div class="data-table-wrap" style="overflow-x:auto"><table class="data-table"><thead><tr><th>Titel</th><th>Status</th><th>Datei</th>${admin?'<th></th>':''}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
@@ -1513,7 +1513,7 @@ function renderAngeboteHTML(cid){
       <button onclick="setAngebotAbgelehnt('${a.id}','${cid}')" style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-sans);border:1.5px solid var(--red);background:var(--red-bg);color:var(--red)">✕ Ablehnen</button>
     </div>`:'';
     const freigabeInfo=(a.status==='freigegeben'&&a.freigabe_datum)?`<div style="font-size:10px;color:var(--text3);margin-top:4px">Freigabe erteilt am ${a.freigabe_datum}${a.freigabe_uhrzeit?' um '+a.freigabe_uhrzeit:''}</div>`:'';
-    const delBtn=admin?`<button onclick="deleteAngebot('${a.id}','${cid}')" style="display:inline-flex;align-items:center;background:rgba(255,68,68,0.15);border:1px solid rgba(255,68,68,0.4);border-radius:6px;padding:4px 8px;cursor:pointer;color:#ff4444"><i class="ti ti-x" style="color:#ff4444;font-size:14px;"></i></button>`:'';
+    const delBtn=admin?`<button onclick="deleteAngebot('${a.id}','${cid}')" style="display:flex;align-items:center;justify-content:center;background:rgba(255,68,68,0.15);border:1px solid rgba(255,68,68,0.4);border-radius:6px;padding:4px 8px;cursor:pointer;color:#ff4444;font-size:14px;font-weight:bold">✕</button>`:'';
     return `<div style="border:1px solid #E8E8E8;border-left:4px solid ${sm.color};border-radius:8px;padding:13px 15px;background:#FFF">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
         <div style="min-width:0;flex:1">
@@ -1682,7 +1682,7 @@ function renderInsuranceHTML(cid){
   if(!items.length) return titleRow+`<div class="detail-panel"><div class="empty-state"><div class="empty-icon"><i class="ti ti-shield" aria-hidden="true"></i></div><div class="empty-text">Keine Versicherungsdaten vorhanden</div></div></div>`;
   const rows=items.map(i=>{
     const dlLink=i.file_path?`<button onclick="openDocPreview(this.dataset.url,this.dataset.titel)" data-url="${i.file_path}" data-titel="${escHtml(i.titel||i.type||'')}" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--gold);background:none;border:none;cursor:pointer;font-family:var(--font-sans)"><i class="ti ti-eye" aria-hidden="true"></i> Vorschau</button>`:'—';
-    const delBtn=admin?`<button onclick="deleteInsuranceDoc('${i.id}','${cid}')" style="display:inline-flex;align-items:center;background:rgba(255,68,68,0.15);border:1px solid rgba(255,68,68,0.4);border-radius:6px;padding:4px 8px;cursor:pointer;color:#ff4444"><i class="ti ti-x" style="color:#ff4444;font-size:14px;"></i></button>`:'';
+    const delBtn=admin?`<button onclick="deleteInsuranceDoc('${i.id}','${cid}')" style="display:flex;align-items:center;justify-content:center;background:rgba(255,68,68,0.15);border:1px solid rgba(255,68,68,0.4);border-radius:6px;padding:4px 8px;cursor:pointer;color:#ff4444;font-size:14px;font-weight:bold">✕</button>`:'';
     return `<tr><td style="font-weight:500">${escHtml(i.titel||i.type||'')}</td><td style="color:var(--text3)">${i.ablauf||i.until||'—'}</td><td>${dlLink}</td>${admin?`<td>${delBtn}</td>`:''}</tr>`;
   }).join('');
   return titleRow+`<div class="detail-panel" style="padding:0;overflow:hidden"><div class="data-table-wrap" style="overflow-x:auto"><table class="data-table"><thead><tr><th>Titel</th><th>Ablauf</th><th>Datei</th>${admin?'<th></th>':''}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
@@ -1738,7 +1738,7 @@ function renderLeasingHTML(cid){
     const v=state.vehicles.find(vv=>vv.id===(l.vid||l.vehicle_id));
     const vName=v?v.plate+' — '+v.make+' '+v.model:'—';
     const dlLink=l.file_path?`<button onclick="openDocPreview(this.dataset.url,this.dataset.titel)" data-url="${l.file_path}" data-titel="${escHtml(l.titel||l.lessor||'')}" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--gold);background:none;border:none;cursor:pointer;font-family:var(--font-sans)"><i class="ti ti-eye" aria-hidden="true"></i> Vorschau</button>`:'—';
-    const delBtn=admin?`<button onclick="deleteLeasingDoc('${l.id}','${cid}')" style="display:inline-flex;align-items:center;background:rgba(255,68,68,0.15);border:1px solid rgba(255,68,68,0.4);border-radius:6px;padding:4px 8px;cursor:pointer;color:#ff4444"><i class="ti ti-x" style="color:#ff4444;font-size:14px;"></i></button>`:'';
+    const delBtn=admin?`<button onclick="deleteLeasingDoc('${l.id}','${cid}')" style="display:flex;align-items:center;justify-content:center;background:rgba(255,68,68,0.15);border:1px solid rgba(255,68,68,0.4);border-radius:6px;padding:4px 8px;cursor:pointer;color:#ff4444;font-size:14px;font-weight:bold">✕</button>`:'';
     return `<tr><td style="font-weight:500">${escHtml(l.titel||l.lessor||'')}</td><td style="font-size:11px;color:var(--text3)">${escHtml(vName)}</td><td>${dlLink}</td>${admin?`<td>${delBtn}</td>`:''}</tr>`;
   }).join('');
   return titleRow+`<div class="detail-panel" style="padding:0;overflow:hidden"><div class="data-table-wrap" style="overflow-x:auto"><table class="data-table"><thead><tr><th>Titel</th><th>Fahrzeug</th><th>Datei</th>${admin?'<th></th>':''}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
@@ -1946,7 +1946,7 @@ function renderCalListHTML(appts){
       fb=`<div class="cal-fb-box" style="color:var(--text3)">Noch keine Kundenrückmeldung.</div>`;
     }
     const actions=admin
-      ?`<div style="display:flex;gap:6px;align-items:center"><button class="btn btn-outline" style="font-size:11px;padding:3px 10px;height:auto" onclick="openCalEdit('${a.id}')"><i class="ti ti-edit" aria-hidden="true"></i> Bearbeiten</button><button style="background:rgba(255,68,68,0.15);border:1px solid rgba(255,68,68,0.4);border-radius:6px;padding:4px 8px;cursor:pointer;color:#ff4444" onclick="deleteCalEntry('${a.id}','${a.cid}')"><i class="ti ti-x" style="color:#ff4444;font-size:14px;"></i></button></div>`
+      ?`<div style="display:flex;gap:6px;align-items:center"><button class="btn btn-outline" style="font-size:11px;padding:3px 10px;height:auto" onclick="openCalEdit('${a.id}')"><i class="ti ti-edit" aria-hidden="true"></i> Bearbeiten</button><button style="display:flex;align-items:center;justify-content:center;background:rgba(255,68,68,0.15);border:1px solid rgba(255,68,68,0.4);border-radius:6px;padding:4px 8px;cursor:pointer;color:#ff4444;font-size:14px;font-weight:bold" onclick="deleteCalEntry('${a.id}','${a.cid}')">✕</button></div>`
       :`<button class="btn btn-gold" style="font-size:11px;padding:3px 10px;height:auto" onclick="openCalFeedbackModal('${a.id}')"><i class="ti ti-message-circle" aria-hidden="true"></i> Bewerten</button>`;
     return `<div class="cal-list-card ${sc}">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -2441,7 +2441,7 @@ function renderDamageTab(v){
       <div class="damage-meta">${dmgLabels[d.type]||'Schaden'} · ${d.desc} · ${new Date(d.date).toLocaleDateString('de-DE')} · ${Number(d.cost).toLocaleString('de-DE')} €</div>
     </div>
     <span class="badge ${d.status==='open'?'badge-danger':d.status==='in-progress'?'badge-warn':'badge-ok'}">${statusLabels[d.status]}</span>
-    ${isAdmin()?`<button onclick="event.stopPropagation();deleteDamage('${d.id}','${v.id}')" style="flex-shrink:0;background:rgba(255,68,68,0.15);border:1px solid rgba(255,68,68,0.4);border-radius:6px;padding:4px 8px;cursor:pointer;color:#ff4444;align-self:center" title="Schaden löschen"><i class="ti ti-x" style="color:#ff4444;font-size:14px;"></i></button>`:''}
+    ${isAdmin()?`<button onclick="event.stopPropagation();deleteDamage('${d.id}','${v.id}')" style="flex-shrink:0;display:flex;align-items:center;justify-content:center;background:rgba(255,68,68,0.15);border:1px solid rgba(255,68,68,0.4);border-radius:6px;padding:4px 8px;cursor:pointer;color:#ff4444;font-size:14px;font-weight:bold;align-self:center" title="Schaden löschen">✕</button>`:''}
   </div>`).join(''):`<div class="empty-state"><div class="empty-icon"><i class="ti ti-mood-happy" aria-hidden="true"></i></div><div class="empty-text">Keine Schäden erfasst</div></div>`;
 
   const addBtn=isAdmin()?`<button class="btn btn-gold" style="align-self:flex-start" onclick="openModal('damage','${v.id}')"><i class="ti ti-plus" aria-hidden="true"></i> Schaden erfassen</button>`:'';
