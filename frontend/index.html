@@ -454,6 +454,7 @@ const SUPABASE_URL = 'https://xxwvppftmevchodvlsdt.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_m5nSPvO-5tqY9dqBp-NczQ_NAdsak8f';
 const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 </script>
+<script src="https://js.hcaptcha.com/1/api.js" async defer></script>
 </head>
 <body>
 
@@ -471,6 +472,7 @@ const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     <div class="login-field">
       <input class="login-input" id="k-pass" type="password" placeholder="Passwort" autocomplete="current-password" onkeydown="if(event.key==='Enter')loginKunde()">
     </div>
+    <div class="h-captcha" data-sitekey="DEIN_SITE_KEY"></div>
     <button class="btn-login-gold" onclick="loginKunde()">Anmelden</button>
     <a class="forgot-link" onclick="alert('Bitte kontaktieren Sie uns unter info@goldpark.de')">Passwort vergessen?</a>
     <div class="login-error" id="k-error"></div>
@@ -486,6 +488,7 @@ const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     <div class="admin-section-title">Interner Zugang</div>
     <input class="login-input-sm" id="a-email" type="email" placeholder="E-Mail" autocomplete="username">
     <input class="login-input-sm" id="a-pass" type="password" placeholder="Passwort" autocomplete="current-password" onkeydown="if(event.key==='Enter')loginAdmin()">
+    <div class="h-captcha" data-sitekey="DEIN_SITE_KEY"></div>
     <button class="btn-login-admin" onclick="loginAdmin()"><i class="ti ti-shield-lock" style="font-size:12px;margin-right:4px" aria-hidden="true"></i>Admin Zugang</button>
     <div class="admin-error" id="a-error"></div>
   </div>
