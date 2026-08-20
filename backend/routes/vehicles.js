@@ -41,6 +41,7 @@ function mapVehicle(row) {
       date: row.detailing_date ? row.detailing_date.toISOString().split('T')[0] : null,
     },
     leasing_km_rest: row.leasing_km_rest,
+    gruppe: row.gruppe || 'Ohne Zuordnung',
     created_at: row.created_at,
   };
 }
@@ -135,7 +136,7 @@ router.put('/:id', requireAuth, async (req, res) => {
     service_date, service_interval, service_last_km,
     tuev_date, tires_date, tires_type,
     tire_size_fl, tire_size_fr, tire_size_rl, tire_size_rr,
-    detailing_date, leasing_km_rest,
+    detailing_date, leasing_km_rest, gruppe,
   } = req.body;
 
   try {
@@ -153,8 +154,8 @@ router.put('/:id', requireAuth, async (req, res) => {
         service_date=$11, service_interval=$12, service_last_km=$13,
         tuev_date=$14, tires_date=$15, tires_type=$16,
         tire_size_fl=$17, tire_size_fr=$18, tire_size_rl=$19, tire_size_rr=$20,
-        detailing_date=$21, leasing_km_rest=$22
-       WHERE id=$23 RETURNING *`,
+        detailing_date=$21, leasing_km_rest=$22, gruppe=$23
+       WHERE id=$24 RETURNING *`,
       [
         make, model, plate, year || null, km || 0,
         vin || null, besitzart || null, fuel || null,
@@ -162,7 +163,7 @@ router.put('/:id', requireAuth, async (req, res) => {
         service_date || null, service_interval || 15000, service_last_km || 0,
         tuev_date || null, tires_date || null, tires_type || null,
         tire_size_fl || null, tire_size_fr || null, tire_size_rl || null, tire_size_rr || null,
-        detailing_date || null, leasing_km_rest || null,
+        detailing_date || null, leasing_km_rest || null, gruppe || 'Ohne Zuordnung',
         req.params.id,
       ]
     );

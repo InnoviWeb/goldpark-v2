@@ -699,7 +699,7 @@ async function loadAllData(role, cid) {
       state.vehicles.push(...vehs);
     }
     if (invRes && invRes.ok) { const d = await invRes.json(); state.invoices.push(...d.map(r=>({...(r.data||{}),id:r.id,cid:r.company_id}))); }
-    if (calRes && calRes.ok) { const d = await calRes.json(); state.calendar.push(...d.map(r=>({...r,cid:r.cid||r.company_id,vehicleId:r.vehicleId||r.vehicle_id}))); }
+    if (calRes && calRes.ok) { const d = await calRes.json(); state.calendar.push(...d.map(r=>({...r,cid:r.cid||r.company_id,vehicleId:r.vehicleId||r.vehicle_id,kundenStatus:r.kunden_status,kundenNachricht:r.kunden_nachricht,alternativTermin:r.alternativ_termin}))); }
     if (insRes && insRes.ok) { const d = await insRes.json(); state.insurances.push(...d); }
     if (blkRes && blkRes.ok) { const d = await blkRes.json(); state.blockedSlots.push(...d); }
     if (angRes && angRes.ok) { const d = await angRes.json(); state.angebote.push(...d.map(r=>({...(r.data||{}),id:r.id,cid:r.company_id}))); }
@@ -721,7 +721,7 @@ function isAdmin(){return currentRole==='admin';}
 
 function getVehicleStatus(v){
   const checks=[daysUntil(v.service.date),daysUntil(v.tuev.date),daysUntil(v.tires.date),daysUntil(v.detailing.date)];
-  const hasOpen=v.damages.some(d=>d.status==='open'||d.status==='in-progress');
+  const hasOpen=v.damages.some(d=>d.status==='in-progress'||d.status==='werkstatt');
   if(checks.some(d=>d<0)||hasOpen)return 'danger';
   if(checks.some(d=>d<=30))return 'warn';
   return 'ok';
@@ -1071,8 +1071,8 @@ function buildMitteilungenTileHTML(cid){
       const d=daysUntil(v[t.key].date);
       if(d<=14) items.push({vid:v.id,cid:v.cid,text:`${v.make} ${v.model}`,sub:`${t.label} · ${v.plate}`,days:d,cls:d<0?'danger':'warn',icon:t.icon});
     });
-    v.damages.filter(dmg=>dmg.status==='open'||dmg.status==='in-progress').forEach(dmg=>{
-      items.push({vid:v.id,cid:v.cid,text:`${v.make} ${v.model}`,sub:`${dmg.title} · ${v.plate}`,days:-9999,cls:'danger',icon:'ti-tools',label:dmg.status==='open'?'Offen':'In Bearb.'});
+    v.damages.filter(dmg=>dmg.status==='in-progress'||dmg.status==='werkstatt').forEach(dmg=>{
+      items.push({vid:v.id,cid:v.cid,text:`${v.make} ${v.model}`,sub:`${dmg.title} · ${v.plate}`,days:-9999,cls:'danger',icon:'ti-tools',label:dmg.status==='werkstatt'?'Werkstatt':'In Bearb.'});
     });
   });
   state.drivers.filter(d=>d.cid===cid&&d.nextCheck).forEach(d=>{
@@ -1135,8 +1135,8 @@ function renderAdminAlertBars(){
       if(d<=14){urgent.push({...e,cls:d<0?'danger':'warn'});}
       else if(d<=30){remind.push(e);}
     });
-    v.damages.filter(dmg=>dmg.status==='open'||dmg.status==='in-progress').forEach(dmg=>{
-      urgent.push({vid:v.id,cid:v.cid,text:`${v.make} ${v.model} — ${dmg.title}`,days:-9999,cls:'danger',icon:'ti-tools',label:dmg.status==='open'?'Offen':'In Bearb.'});
+    v.damages.filter(dmg=>dmg.status==='in-progress'||dmg.status==='werkstatt').forEach(dmg=>{
+      urgent.push({vid:v.id,cid:v.cid,text:`${v.make} ${v.model} — ${dmg.title}`,days:-9999,cls:'danger',icon:'ti-tools',label:dmg.status==='werkstatt'?'Werkstatt':'In Bearb.'});
     });
   });
   state.drivers.filter(d=>d.nextCheck).forEach(d=>{
@@ -1172,7 +1172,7 @@ function openAlertModal(){
       else if(d<=7)byCompany[v.cid].yellow.push(e);
       else byCompany[v.cid].green.push(e);
     });
-    v.damages.filter(dmg=>dmg.status==='open'||dmg.status==='in-progress').forEach(dmg=>{
+    v.damages.filter(dmg=>dmg.status==='in-progress'||dmg.status==='werkstatt').forEach(dmg=>{
       byCompany[v.cid].red.push({vid:v.id,cid:v.cid,plate:v.plate,label:dmg.title,date:dmg.date,days:-9999,isDamage:true,damageStatus:dmg.status});
     });
   });
@@ -1221,7 +1221,7 @@ function driverBadgeHTML(v){
   if(v.wechselfahrer)return `<div class="vcard-driver wechsel" onclick="event.stopPropagation();openModal('driverAssign','${v.id}')"><i class="ti ti-users" style="font-size:10px" aria-hidden="true"></i><span>Wechselfahrer</span></div>`;
   const dr=state.drivers.find(d=>d.id===v.fahrerId);
   if(!dr)return `<div class="vcard-driver none" onclick="event.stopPropagation();openModal('driverAssign','${v.id}')"><i class="ti ti-user-off" style="font-size:10px" aria-hidden="true"></i><span>Kein Fahrer zugewiesen</span></div>`;
-  return `<div class="vcard-driver assigned" onclick="event.stopPropagation();openModal('driverAssign','${v.id}')"><i class="ti ti-user" style="font-size:10px" aria-hidden="true"></i><span>${dr.vorname} ${dr.nachname}</span></div>`;
+  return `<div class="vcard-driver assigned" onclick="event.stopPropagation();openModal('driverAssign','${v.id}')"><i class="ti ti-user" style="font-size:10px" aria-hidden="true"></i><span>${dr.name}</span></div>`;
 }
 function buildVehicleSection(vehicles,company){
   const cid=company?company.id:'';
@@ -1241,7 +1241,7 @@ function buildVehicleSection(vehicles,company){
     const cards=gVehicles.map(v=>{
       const s=getVehicleStatus(v);
       const reminders=[{label:'Service',days:daysUntil(v.service.date)},{label:'TÜV',days:daysUntil(v.tuev.date)},{label:'Reifen',days:daysUntil(v.tires.date)}].filter(r=>r.days<=30);
-      const dmg=v.damages.filter(d=>d.status!=='closed');
+      const dmg=v.damages.filter(d=>d.status==='in-progress'||d.status==='werkstatt');
       const isSel=state.selectedVehicle===v.id;
       const gOpts=groups.map(g=>`<option value="${g}"${(v.gruppe||'Ohne Zuordnung')===g?' selected':''}>${g}</option>`).join('');
       return `<div class="vehicle-card${isSel?' selected':''}" data-vid="${v.id}" onclick="selectVehicle('${v.id}')">
@@ -1792,6 +1792,9 @@ async function deleteVehicle(vid,cid){
   const v=state.vehicles.find(x=>x.id===vid);
   const label=v?v.make+' '+v.model+' ('+v.plate+')':vid;
   if(!confirm(label+' wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.'))return;
+  if(v&&v.damages&&v.damages.length){
+    await Promise.all(v.damages.map(d=>api('/api/damages/'+d.id,{method:'DELETE'})));
+  }
   const res=await api('/api/vehicles/'+vid,{method:'DELETE'});
   if(res&&res.ok){state.vehicles=state.vehicles.filter(x=>x.id!==vid);if(state.selectedVehicle===vid)state.selectedVehicle=null;}
   renderMain();
@@ -1824,7 +1827,7 @@ function renderNVHTML(vehicles){
       {label:'Aufbereitung',date:v.detailing.date},
     ];
     const overdues=checks.filter(c=>daysUntil(c.date)<0);
-    const activeDmg=v.damages.filter(d=>d.status==='open'||d.status==='in-progress');
+    const activeDmg=v.damages.filter(d=>d.status==='in-progress'||d.status==='werkstatt');
     if(overdues.length>0||activeDmg.length>0) nvList.push({v,overdues,activeDmg});
   });
   if(!nvList.length) return `<div class="section-title"><i class="ti ti-circle-x" aria-hidden="true"></i> Nicht verfügbar</div><div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--green);padding:12px 0"><i class="ti ti-circle-check" aria-hidden="true"></i>Alle Fahrzeuge sind verfügbar.</div>`;
@@ -2029,8 +2032,8 @@ async function saveCalFeedback(id){
   const st=document.getElementById('cal-fb-status').value;
   const kundenNachricht=document.getElementById('cal-fb-msg').value.trim();
   const alternativTermin=document.getElementById('cal-fb-alt').value||'';
-  const res=await api('/api/calendar/'+id+'?company_id='+a.cid,{method:'PUT',body:JSON.stringify({...a,kundenStatus:st||null,kundenNachricht,alternativTermin})});
-  if(res&&res.ok){a.kundenStatus=st||null;a.kundenNachricht=kundenNachricht;a.alternativTermin=alternativTermin;}
+  const res=await api('/api/calendar/'+id+'?company_id='+a.cid,{method:'PUT',body:JSON.stringify({...a,kunden_status:st||null,kunden_nachricht:kundenNachricht,alternativ_termin:alternativTermin})});
+  if(res&&res.ok){a.kunden_status=st||null;a.kunden_nachricht=kundenNachricht;a.alternativ_termin=alternativTermin;a.kundenStatus=st||null;a.kundenNachricht=kundenNachricht;a.alternativTermin=alternativTermin;}
   closeModal();renderMain();refreshMasterCalendarIfOpen();
 }
 
@@ -2428,8 +2431,8 @@ function getVehicleSVG(make, model, labels) {
 function renderDamageTab(v){
   const allMarkers=v.damages.flatMap((d,di)=>(d.markers||[]).map((m,mi)=>({...m,type:d.type||'sonstiges',title:d.title,di,mi,did:d.id})));
   const markersHTML=allMarkers.map(m=>{
-    const clickAttr=isAdmin()?`onclick="openDamageFromMarker(event,'${m.did}')" ondblclick="removeMarker('${v.id}','${m.did}',${m.mi},event)"`:'';
-    return `<div class="damage-marker ${m.type}" style="left:${m.x}%;top:${m.y}%" title="${m.title}" ${clickAttr}>${dmgSymbols[m.type]||'?'}</div>`;
+    const clickAttr=isAdmin()?`onclick="openDamageFromMarker(event,'${m.did}')" ondblclick="removeMarker('${v.id}','${m.did}',${m.mi},event)"`:`onclick="openDamageFromMarker(event,'${m.did}')"`;
+    return `<div class="damage-marker ${m.type}" style="left:${m.x}%;top:${m.y}%;cursor:pointer" title="${m.title}" ${clickAttr}>${dmgSymbols[m.type]||'?'}</div>`;
   }).join('');
   const pendingHTML=isAdmin()?state.pendingMarkers.map(m=>`<div class="damage-marker ${state.activeDmgType}" style="left:${m.x}%;top:${m.y}%;opacity:0.65" title="Neu">${dmgSymbols[state.activeDmgType]}</div>`).join(''):'';
   const typeButtons=isAdmin()?`<div class="damage-type-selector">${Object.keys(dmgLabels).map(t=>`<button class="dtype-btn${state.activeDmgType===t?' active-'+t:''}" onclick="setDmgType('${t}')">${dmgLabels[t]}</button>`).join('')}</div>`:'';
@@ -2532,7 +2535,7 @@ function buildPdfDocBody(v,doc){
   if(doc.typ==='Vertrag'&&v.besitzart==='Leasing'&&ls){ext=pdfR('Leasinggeber',ls.lessor)+pdfR('Monatl. Rate',ls.monthly.toLocaleString('de-DE',{style:'currency',currency:'EUR'}))+pdfR('Laufzeit',ls.duration+' Monate')+pdfR('Beginn',new Date(ls.start).toLocaleDateString('de-DE'))+pdfR('Ende',new Date(ls.end).toLocaleDateString('de-DE'))+pdfR('Rest-km',ls.restKm?ls.restKm.toLocaleString('de-DE')+' km':'—');}
   return pdfPage(pdfHdr(doc.name,doc.datum?'Datum: '+new Date(doc.datum).toLocaleDateString('de-DE'):'',doc.id)+
     `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#555;margin-bottom:7px">Fahrzeugdaten</div>`+
-    `<table style="width:100%;border-collapse:collapse;margin-bottom:22px">${pdfR('Hersteller / Modell',v.make+' '+v.model)}${pdfR('Kennzeichen','<span style="font-family:monospace">'+v.plate+'</span>')}${pdfR('Baujahr',String(v.year))}${pdfR('Kilometerstand',v.km.toLocaleString('de-DE')+' km')}${pdfR('FIN','<span style="font-family:monospace">'+(v.vin||'—')+'</span>')}${pdfR('Besitzart',v.besitzart)}${dr?pdfR('Fahrer',(dr.vorname||'')+' '+(dr.nachname||dr.name)):''}${ext}</table>`+
+    `<table style="width:100%;border-collapse:collapse;margin-bottom:22px">${pdfR('Hersteller / Modell',v.make+' '+v.model)}${pdfR('Kennzeichen','<span style="font-family:monospace">'+v.plate+'</span>')}${pdfR('Baujahr',String(v.year))}${pdfR('Kilometerstand',v.km.toLocaleString('de-DE')+' km')}${pdfR('FIN','<span style="font-family:monospace">'+(v.vin||'—')+'</span>')}${pdfR('Besitzart',v.besitzart)}${dr?pdfR('Fahrer',dr.name||''):''}${ext}</table>`+
     (doc.beschreibung?`<div style="margin-bottom:18px;padding:10px 14px;background:#F9F9F9;border-left:3px solid #C9A84C;font-size:11px">${doc.beschreibung}</div>`:'')+
     `<div style="margin-top:50px;display:flex;justify-content:space-between"><div style="width:180px;border-top:1px solid #AAA;padding-top:5px;font-size:9px;color:#888;text-align:center">Unterschrift Auftraggeber</div><div style="width:180px;border-top:1px solid #AAA;padding-top:5px;font-size:9px;color:#888;text-align:center">Unterschrift Auftragnehmer</div></div>`+
     `<div style="margin-top:36px;padding-top:8px;border-top:0.5px solid #E0E0E0;font-size:9px;color:#AAA;text-align:center">Dieses Dokument ist maschinell erstellt. · Goldpark GmbH · Flottenverwaltungssystem</div>`);
@@ -2731,8 +2734,8 @@ function openModal(type,id=''){
       <div class="form-row"><div class="form-group"><label class="form-label">Kilometerstand</label><input class="form-input" id="ve-km" type="number" value="${v.km}"></div><div class="form-group"><label class="form-label">Kraftstoffart</label><select class="form-input" id="ve-fuel"><option${(v.fuel||'Diesel')==='Diesel'?' selected':''}>Diesel</option><option${v.fuel==='Benzin'?' selected':''}>Benzin</option><option${v.fuel==='Elektro'?' selected':''}>Elektro</option><option${v.fuel==='Gas'?' selected':''}>Gas</option></select></div></div>
       <div class="form-row"><div class="form-group"><label class="form-label">Besitzart</label><select class="form-input" id="ve-besitzart" onchange="document.getElementById('ve-kmrest-wrap').style.display=this.value==='Leasing'?'':'none'"><option${v.besitzart==='Leasing'?' selected':''}>Leasing</option><option${v.besitzart==='Finanziert'?' selected':''}>Finanziert</option><option${v.besitzart==='Im Besitz'?' selected':''}>Im Besitz</option><option${v.besitzart==='Gemietet'?' selected':''}>Gemietet</option></select></div><div class="form-group"><label class="form-label">Reifenart</label><select class="form-input" id="ve-tires">${tOpt('Sommerreifen')}${tOpt('Winterreifen')}${tOpt('Allwetterbereifung')}</select></div></div>
       <div id="ve-kmrest-wrap" style="display:${v.besitzart==='Leasing'?'':'none'}"><div class="form-group"><label class="form-label">Restkilometer bis Jahresende</label><input class="form-input" id="ve-kmrest" type="number" placeholder="z.B. 12500" value="${v.leasingKmRest!=null?v.leasingKmRest:''}"></div></div>
-      <div class="form-row"><div class="form-group"><label class="form-label">Reifengröße VL</label><input class="form-input" id="ve-sizefl" placeholder="z.B. 235/65 R16C" value="${v.tires.sizeFL||''}"></div><div class="form-group"><label class="form-label">Reifengröße VR</label><input class="form-input" id="ve-sizefr" placeholder="z.B. 235/65 R16C" value="${v.tires.sizeFR||''}"></div></div>
-      <div class="form-row"><div class="form-group"><label class="form-label">Reifengröße HL</label><input class="form-input" id="ve-sizerl" placeholder="z.B. 235/65 R16C" value="${v.tires.sizeRL||''}"></div><div class="form-group"><label class="form-label">Reifengröße HR</label><input class="form-input" id="ve-sizerr" placeholder="z.B. 235/65 R16C" value="${v.tires.sizeRR||''}"></div></div>
+      <div class="form-row"><div class="form-group"><label class="form-label">Reifengröße VL</label><input class="form-input" id="ve-sizefl" placeholder="z.B. 235/65 R16C" value="${(v.tireSizes&&v.tireSizes.fl)||''}"></div><div class="form-group"><label class="form-label">Reifengröße VR</label><input class="form-input" id="ve-sizefr" placeholder="z.B. 235/65 R16C" value="${(v.tireSizes&&v.tireSizes.fr)||''}"></div></div>
+      <div class="form-row"><div class="form-group"><label class="form-label">Reifengröße HL</label><input class="form-input" id="ve-sizerl" placeholder="z.B. 235/65 R16C" value="${(v.tireSizes&&v.tireSizes.rl)||''}"></div><div class="form-group"><label class="form-label">Reifengröße HR</label><input class="form-input" id="ve-sizerr" placeholder="z.B. 235/65 R16C" value="${(v.tireSizes&&v.tireSizes.rr)||''}"></div></div>
       <div class="form-group"><label class="form-label">Fahrgestellnummer (FIN)</label><input class="form-input" id="ve-vin" placeholder="z.B. WDB9066331S123456" value="${v.vin||''}" style="font-family:var(--font-mono)"></div>
       <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" onclick="saveEditVehicle('${id}')"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button></div></div>`;
   } else if(type==='availability'){
@@ -2839,7 +2842,7 @@ function openModal(type,id=''){
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
         <div style="width:36px;height:36px;border-radius:50%;background:#E8EEF5;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-user" style="font-size:16px;color:#1A6FA8" aria-hidden="true"></i></div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:600;color:#1A1A1A">${dr.vorname} ${dr.nachname}</div>
+          <div style="font-size:14px;font-weight:600;color:#1A1A1A">${dr.name}</div>
           <div style="font-size:11px;color:#888">Klasse: ${dr.licenseClass||'—'}</div>
         </div>
         <div style="background:${sColor(dr.fuehrerscheinStatus||dr.status)};color:#FFF;font-size:10px;font-weight:600;padding:3px 9px;border-radius:99px;flex-shrink:0">${sLabel(dr.fuehrerscheinStatus||dr.status)}</div>
@@ -2849,7 +2852,7 @@ function openModal(type,id=''){
         <div><div style="font-size:9px;color:#AAA;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px">Telefon</div><div style="font-size:11px;color:#1A1A1A">${dr.telefon||'—'}</div></div>
       </div>
     </div>`:v.wechselfahrer?`<div style="font-size:12px;color:#8A6500;margin-bottom:14px;padding:10px 12px;background:#FFF8E1;border-radius:8px;border:0.5px solid #FFD600"><i class="ti ti-users" style="font-size:12px" aria-hidden="true"></i> Wechselfahrzeug — wird von mehreren Fahrern genutzt.</div>`:`<div style="font-size:12px;color:#AAA;margin-bottom:14px;padding:10px 12px;background:#F9F9F9;border-radius:8px">Kein Fahrer zugewiesen.</div>`;
-    const driverOpts=compDrivers.map(d=>`<option value="${d.id}"${v.fahrerId===d.id?' selected':''}>${d.vorname||''} ${d.nachname||d.name}</option>`).join('');
+    const driverOpts=compDrivers.map(d=>`<option value="${d.id}"${v.fahrerId===d.id?' selected':''}>${d.name}</option>`).join('');
     const editBlock=isAdmin()?`<div style="margin-bottom:12px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:#1A1A1A;padding:10px 12px;background:#F9F9F9;border-radius:8px;border:0.5px solid #EBEBEB"><input type="checkbox" id="da-wechsel" ${v.wechselfahrer?'checked':''} onchange="toggleWechselfahrer()"><span style="font-weight:500">Wechselfahrzeug (mehrere Fahrer)</span></label></div>
       <div id="da-driver-wrap" style="display:${v.wechselfahrer?'none':''}"><div class="form-group"><label class="form-label">Zugewiesener Fahrer</label><select class="form-input" id="da-driver"><option value="">— Kein Fahrer —</option>${driverOpts}</select></div></div>
       <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">Schließen</button><button class="btn btn-gold" onclick="saveDriverAssign('${id}')"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button></div>`:`<div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">Schließen</button></div>`;
@@ -2912,9 +2915,12 @@ function toggleGroup(cid,gi){
   state.collapsedGroups[key]=!state.collapsedGroups[key];
   renderVehicleSection();
 }
-function moveVehicleGroup(vid,gruppe){
+async function moveVehicleGroup(vid,gruppe){
   const v=state.vehicles.find(x=>x.id===vid);
-  if(v){v.gruppe=gruppe;renderVehicleSection();}
+  if(!v)return;
+  v.gruppe=gruppe;
+  renderVehicleSection();
+  await api('/api/vehicles/'+vid+'?company_id='+v.cid,{method:'PUT',body:JSON.stringify({...v,gruppe})});
 }
 function addGroup(cid){
   const input=document.getElementById('new-group-name');
@@ -3102,9 +3108,14 @@ async function saveEditVehicle(vid){
     besitzart,
     fuel:document.getElementById('ve-fuel').value,
     leasingKmRest:besitzart==='Leasing'?parseInt(document.getElementById('ve-kmrest').value)||null:null,
-    tires:{...v.tires,type:document.getElementById('ve-tires').value,sizeFL:document.getElementById('ve-sizefl').value.trim(),sizeFR:document.getElementById('ve-sizefr').value.trim(),sizeRL:document.getElementById('ve-sizerl').value.trim(),sizeRR:document.getElementById('ve-sizerr').value.trim()}};
+    tires:{...v.tires,type:document.getElementById('ve-tires').value},
+    tire_size_fl:document.getElementById('ve-sizefl').value.trim(),
+    tire_size_fr:document.getElementById('ve-sizefr').value.trim(),
+    tire_size_rl:document.getElementById('ve-sizerl').value.trim(),
+    tire_size_rr:document.getElementById('ve-sizerr').value.trim(),
+    gruppe:v.gruppe||'Ohne Zuordnung'};
   const res=await api('/api/vehicles/'+vid+'?company_id='+v.cid,{method:'PUT',body:JSON.stringify({...v,...updates})});
-  if(res&&res.ok){Object.assign(v,updates);}
+  if(res&&res.ok){Object.assign(v,updates);v.tireSizes={fl:updates.tire_size_fl,fr:updates.tire_size_fr,rl:updates.tire_size_rl,rr:updates.tire_size_rr};}
   closeModal();renderMain();
 }
 async function saveDamage(vid,fromMap){
@@ -3532,6 +3543,23 @@ function closeSidebar(){
   if(sb)sb.classList.remove('open');
   if(ov)ov.classList.remove('open');
 }
+
+// ===== AUTOCOMPLETE OFF =====
+(function(){
+  var _acFix=function(){
+    document.querySelectorAll('input').forEach(function(el){
+      var ac=el.getAttribute('autocomplete');
+      if(!ac||ac==='off')return;
+      var keep=['email','current-password','username','new-password'];
+      if(keep.indexOf(ac)<0)el.setAttribute('autocomplete','off');
+    });
+    document.querySelectorAll('input:not([autocomplete])').forEach(function(el){
+      el.setAttribute('autocomplete','off');
+    });
+  };
+  var obs=new MutationObserver(_acFix);
+  obs.observe(document.documentElement,{childList:true,subtree:true});
+})();
 
 // ===== BOOT =====
 checkSession();
