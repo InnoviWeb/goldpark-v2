@@ -26,14 +26,14 @@ router.get('/', requireAuth, enforceCompanyAccess, async (req, res) => {
 
 // POST /api/calendar
 router.post('/', requireAuth, enforceCompanyAccess, async (req, res) => {
-  const { company_id, vehicle_id, plate, date, ziel, grund, kunden_status, kunden_nachricht, alternativ_termin } = req.body;
+  const { company_id, vehicle_id, plate, date, uhrzeit, ziel, grund, kunden_status, kunden_nachricht, alternativ_termin } = req.body;
   if (!company_id) return res.status(400).json({ error: 'company_id erforderlich' });
   try {
     const result = await db.query(
       `INSERT INTO calendar_events
-        (company_id, vehicle_id, plate, date, ziel, grund, kunden_status, kunden_nachricht, alternativ_termin)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [company_id, vehicle_id || null, plate || null, date || null, ziel || null, grund || null,
+        (company_id, vehicle_id, plate, date, uhrzeit, ziel, grund, kunden_status, kunden_nachricht, alternativ_termin)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+      [company_id, vehicle_id || null, plate || null, date || null, uhrzeit || null, ziel || null, grund || null,
        kunden_status || null, kunden_nachricht || null, alternativ_termin || null]
     );
     res.status(201).json(result.rows[0]);
@@ -45,7 +45,7 @@ router.post('/', requireAuth, enforceCompanyAccess, async (req, res) => {
 
 // PUT /api/calendar/:id
 router.put('/:id', requireAuth, async (req, res) => {
-  const { plate, date, ziel, grund, kunden_status, kunden_nachricht, alternativ_termin } = req.body;
+  const { plate, date, uhrzeit, ziel, grund, kunden_status, kunden_nachricht, alternativ_termin } = req.body;
   try {
     const existing = await db.query('SELECT company_id FROM calendar_events WHERE id = $1', [req.params.id]);
     if (!existing.rows.length) return res.status(404).json({ error: 'Nicht gefunden' });
@@ -54,10 +54,10 @@ router.put('/:id', requireAuth, async (req, res) => {
     }
     const result = await db.query(
       `UPDATE calendar_events SET
-        plate=$1, date=$2, ziel=$3, grund=$4,
-        kunden_status=$5, kunden_nachricht=$6, alternativ_termin=$7
-       WHERE id=$8 RETURNING *`,
-      [plate || null, date || null, ziel || null, grund || null,
+        plate=$1, date=$2, uhrzeit=$3, ziel=$4, grund=$5,
+        kunden_status=$6, kunden_nachricht=$7, alternativ_termin=$8
+       WHERE id=$9 RETURNING *`,
+      [plate || null, date || null, uhrzeit || null, ziel || null, grund || null,
        kunden_status || null, kunden_nachricht || null, alternativ_termin || null,
        req.params.id]
     );

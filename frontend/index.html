@@ -1874,7 +1874,7 @@ function renderCalendarHTML(cid){
     const chips=dayAppts.map(a=>{
       const veh=state.vehicles.find(v=>v.id===a.vehicleId);
       const name=veh?`${veh.make} ${veh.model}`:'Fahrzeug';
-      return `<div class="cal-appt ${calStatusClass(a.kundenStatus)}" onclick="event.stopPropagation();openCalAppt('${a.id}')" title="${calEscAttr(name+' · '+a.plate+' → '+a.ziel+' · '+a.grund)}"><div class="cal-appt-veh">${name}</div><div class="cal-appt-meta">${a.plate} → ${a.ziel}</div><div class="cal-appt-grund">${a.grund}</div></div>`;
+      return `<div class="cal-appt ${calStatusClass(a.kundenStatus)}" onclick="event.stopPropagation();openCalAppt('${a.id}')" title="${calEscAttr(name+' · '+a.plate+' → '+a.ziel+' · '+a.grund)}"><div class="cal-appt-veh">${a.uhrzeit?a.uhrzeit+' · ':''} ${name}</div><div class="cal-appt-meta">${a.plate} → ${a.ziel}</div><div class="cal-appt-grund">${a.grund}</div></div>`;
     }).join('');
     // Terminierte Angebote (vom Kunden gewählt)
     const angTermine=state.angebote.filter(a=>a.cid===cid&&a.terminDatum===ds).slice().sort((a,b)=>String(a.terminUhrzeit).localeCompare(String(b.terminUhrzeit)));
@@ -1978,17 +1978,18 @@ async function saveCalAppointment(id,cid){
   const vid=sel?sel.value:'';
   const plate=document.getElementById('cal-plate').value.trim();
   const date=document.getElementById('cal-date').value;
+  const uhrzeit=(document.getElementById('cal-uhrzeit')||{value:''}).value||'';
   const ziel=document.getElementById('cal-ziel').value.trim();
   const grund=document.getElementById('cal-grund').value.trim();
   if(!vid||!date||!ziel||!grund){alert('Bitte Fahrzeug, Datum, Zielort und Grund ausfüllen.');return;}
   if(id){
     const a=state.calendar.find(x=>x.id===id);if(!a)return;
-    const res=await api('/api/calendar/'+id+'?company_id='+cid,{method:'PUT',body:JSON.stringify({...a,company_id:cid,vehicle_id:vid,plate,date,ziel,grund})});
-    if(res&&res.ok){a.vehicleId=vid;a.plate=plate;a.date=date;a.ziel=ziel;a.grund=grund;}
+    const res=await api('/api/calendar/'+id+'?company_id='+cid,{method:'PUT',body:JSON.stringify({...a,company_id:cid,vehicle_id:vid,plate,date,uhrzeit,ziel,grund})});
+    if(res&&res.ok){a.vehicleId=vid;a.plate=plate;a.date=date;a.uhrzeit=uhrzeit;a.ziel=ziel;a.grund=grund;}
   }else{
-    const payload={company_id:cid,vehicle_id:vid,plate,date,ziel,grund,kundenStatus:null,kundenNachricht:'',alternativTermin:''};
+    const payload={company_id:cid,vehicle_id:vid,plate,date,uhrzeit,ziel,grund,kunden_status:null,kunden_nachricht:'',alternativ_termin:''};
     const res=await api('/api/calendar?company_id='+cid,{method:'POST',body:JSON.stringify(payload)});
-    if(res&&res.ok){const saved=await res.json();state.calendar.push({...saved,cid:saved.cid||saved.company_id,vehicleId:saved.vehicleId||saved.vehicle_id});}
+    if(res&&res.ok){const saved=await res.json();state.calendar.push({...saved,cid:saved.cid||saved.company_id,vehicleId:saved.vehicleId||saved.vehicle_id,kundenStatus:saved.kunden_status,kundenNachricht:saved.kunden_nachricht,alternativTermin:saved.alternativ_termin});}
   }
   const dObj=new Date(date);if(!isNaN(dObj)){state.calYear=dObj.getFullYear();state.calMonth=dObj.getMonth();}
   closeModal();renderMain();refreshMasterCalendarIfOpen();
@@ -2174,8 +2175,7 @@ function openMasterCalAdd(date){
     <div class="form-group"><label class="form-label">Firma *</label><select class="form-input" id="mcal-firma" onchange="masterCalFirmaChange()">${firmaOpts}</select></div>
     <div class="form-group"><label class="form-label">Fahrzeug *</label><select class="form-input" id="cal-vehicle" onchange="calSyncPlate()">${masterVehicleOptions(firstCid,'')}</select></div>
     <div class="form-group"><label class="form-label">Kennzeichen (automatisch)</label><input class="form-input" id="cal-plate" value="${calEscAttr(state.vehicles.filter(v=>v.cid===firstCid)[0]?state.vehicles.filter(v=>v.cid===firstCid)[0].plate:'')}" style="font-family:var(--font-mono);background:#F5F5F5" readonly></div>
-    <div class="form-group"><label class="form-label">Datum *</label><input class="form-input" id="cal-date" type="date" value="${date||''}"></div>
-    <div class="form-group"><label class="form-label">Uhrzeit</label><input class="form-input" id="cal-uhrzeit" type="time" value=""></div>
+    <div class="form-row"><div class="form-group"><label class="form-label">Datum *</label><input class="form-input" id="cal-date" type="date" value="${date||''}"></div><div class="form-group"><label class="form-label">Uhrzeit</label><select class="form-input" id="cal-uhrzeit"><option value="">— Uhrzeit wählen —</option>${terminSlots().map(s=>`<option value="${s}">${s} Uhr</option>`).join('')}</select></div></div>
     <div class="form-group"><label class="form-label">Zielort — wohin *</label><input class="form-input" id="cal-ziel" placeholder="z.B. Werkstatt Auto-Service Frankfurt"></div>
     <div class="form-group"><label class="form-label">Grund — warum *</label><textarea class="form-input" id="cal-grund" rows="2" placeholder="z.B. Inspektion & Ölwechsel"></textarea></div>
     <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" onclick="saveMasterCalAppointment()"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button></div>
@@ -2878,16 +2878,17 @@ function openModal(type,id=''){
     const isEdit=type==='calEdit';
     let appt,cid;
     if(isEdit){appt=state.calendar.find(a=>a.id===id);if(!appt){closeModal();return;}cid=appt.cid;}
-    else{const parts=id.split('__');cid=parts[0];appt={vehicleId:'',plate:'',date:parts[1]||'',ziel:'',grund:''};}
+    else{const parts=id.split('__');cid=parts[0];appt={vehicleId:'',plate:'',date:parts[1]||'',uhrzeit:'',ziel:'',grund:''};}
     const vehs=state.vehicles.filter(v=>v.cid===cid);
     const vOpts=vehs.map(v=>`<option value="${v.id}" data-plate="${calEscAttr(v.plate)}"${appt.vehicleId===v.id?' selected':''}>${v.make} ${v.model} — ${v.plate}</option>`).join('');
     const defaultPlate=appt.plate||(vehs[0]?vehs[0].plate:'');
     const delBtn=isEdit?`<button class="btn" style="color:var(--red);border:0.5px solid rgba(224,85,85,.3);background:var(--red-bg)" onclick="deleteCalAppointment('${id}')"><i class="ti ti-trash" aria-hidden="true"></i></button>`:'';
     const fbInfo=(isEdit&&(appt.kundenStatus||appt.kundenNachricht||appt.alternativTermin))?`<div class="cal-fb-box" style="margin-top:4px"><div style="font-weight:600;color:var(--text);margin-bottom:3px;font-size:10px;text-transform:uppercase;letter-spacing:.05em"><i class="ti ti-message-2" aria-hidden="true"></i> Kundenrückmeldung</div><div>Status: <strong>${calStatusLabel(appt.kundenStatus)}</strong></div>${appt.kundenNachricht?`<div style="margin-top:3px">Nachricht: "${appt.kundenNachricht}"</div>`:''}${appt.alternativTermin?`<div style="margin-top:3px">Alternativvorschlag: <strong>${new Date(appt.alternativTermin).toLocaleDateString('de-DE')}</strong></div>`:''}</div>`:'';
+    const calSlotOpts=terminSlots().map(s=>`<option value="${s}"${(appt.uhrzeit||'')=== s?' selected':''}>${s} Uhr</option>`).join('');
     html=`<div class="modal"><div class="modal-title">${isEdit?'Termin bearbeiten':'Termin hinzufügen'} <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
       <div class="form-group"><label class="form-label">Fahrzeug *</label><select class="form-input" id="cal-vehicle" onchange="calSyncPlate()">${vOpts||'<option value="">Keine Fahrzeuge</option>'}</select></div>
       <div class="form-group"><label class="form-label">Kennzeichen (automatisch)</label><input class="form-input" id="cal-plate" value="${calEscAttr(defaultPlate)}" style="font-family:var(--font-mono);background:#F5F5F5" readonly></div>
-      <div class="form-group"><label class="form-label">Datum *</label><input class="form-input" id="cal-date" type="date" value="${appt.date||''}"></div>
+      <div class="form-row"><div class="form-group"><label class="form-label">Datum *</label><input class="form-input" id="cal-date" type="date" value="${appt.date||''}"></div><div class="form-group"><label class="form-label">Uhrzeit</label><select class="form-input" id="cal-uhrzeit"><option value="">— Uhrzeit wählen —</option>${calSlotOpts}</select></div></div>
       <div class="form-group"><label class="form-label">Zielort — wohin *</label><input class="form-input" id="cal-ziel" value="${calEscAttr(appt.ziel)}" placeholder="z.B. Werkstatt Auto-Service Frankfurt"></div>
       <div class="form-group"><label class="form-label">Grund — warum *</label><textarea class="form-input" id="cal-grund" rows="2" placeholder="z.B. Inspektion & Ölwechsel">${calEscAttr(appt.grund)}</textarea></div>
       ${fbInfo}
