@@ -1668,7 +1668,7 @@ async function confirmAngebotFreigabe(angebotId,cid){
     Object.assign(a,{status:'freigegeben',freigabe_datum:date,freigabe_uhrzeit:time});
     const calPayload={company_id:cid,date,ziel:'Angebotstermin',grund:a.titel||'Angebot',kunden_status:'ausstehend'};
     const calRes=await api('/api/calendar?company_id='+cid,{method:'POST',body:JSON.stringify(calPayload)});
-    if(calRes&&calRes.ok){const saved=await calRes.json();state.calendar.push({...saved,cid:saved.cid||saved.company_id,vehicleId:saved.vehicleId||saved.vehicle_id});}
+    if(calRes&&calRes.ok){const saved=await calRes.json();state.calendar.push({...saved,cid:saved.cid||saved.company_id,vehicleId:saved.vehicleId||saved.vehicle_id,kundenStatus:saved.kunden_status,kundenNachricht:saved.kunden_nachricht,alternativTermin:saved.alternativ_termin});}
     closeModal();reloadAngeboteSection(cid);
   }else{
     if(errEl)errEl.textContent='Fehler beim Speichern.';
@@ -2199,9 +2199,9 @@ async function saveMasterCalAppointment(){
   const grund=document.getElementById('cal-grund').value.trim();
   if(!cid){alert('Bitte eine Firma auswählen.');return;}
   if(!vid||!date||!ziel||!grund){alert('Bitte Fahrzeug, Datum, Zielort und Grund ausfüllen.');return;}
-  const payload={company_id:cid,vehicle_id:vid,plate,date,uhrzeit:uhrzeit||'',ziel,grund,kundenStatus:null,kundenNachricht:'',alternativTermin:''};
+  const payload={company_id:cid,vehicle_id:vid,plate,date,uhrzeit:uhrzeit||'',ziel,grund,kunden_status:null,kunden_nachricht:'',alternativ_termin:''};
   const res=await api('/api/calendar?company_id='+cid,{method:'POST',body:JSON.stringify(payload)});
-  if(res&&res.ok){const saved=await res.json();state.calendar.push({...saved,cid:saved.cid||saved.company_id,vehicleId:saved.vehicleId||saved.vehicle_id});}
+  if(res&&res.ok){const saved=await res.json();state.calendar.push({...saved,cid:saved.cid||saved.company_id,vehicleId:saved.vehicleId||saved.vehicle_id,kundenStatus:saved.kunden_status,kundenNachricht:saved.kunden_nachricht,alternativTermin:saved.alternativ_termin});}
   const dObj=new Date(date);if(!isNaN(dObj)){masterCalState.year=dObj.getFullYear();masterCalState.month=dObj.getMonth();state.calYear=dObj.getFullYear();state.calMonth=dObj.getMonth();}
   closeModal();renderMain();refreshMasterCalendarIfOpen();
 }
@@ -2438,8 +2438,8 @@ function renderDamageTab(v){
   const typeButtons=isAdmin()?`<div class="damage-type-selector">${Object.keys(dmgLabels).map(t=>`<button class="dtype-btn${state.activeDmgType===t?' active-'+t:''}" onclick="setDmgType('${t}')">${dmgLabels[t]}</button>`).join('')}</div>`:'';
   const svgClickAttr=isAdmin()?`onclick="addMarkerOnCar(event,'${v.id}')" class="car-svg-container clickable"`:`class="car-svg-container"`;
   const svgId=isAdmin()?`id="car-svg-wrap-${v.id}"`:'';
-  const statusLabels={open:'Offen',closed:'Abgeschlossen','in-progress':'In Bearbeitung'};
-  const statusIcons={open:'ti-alert-circle',closed:'ti-circle-check','in-progress':'ti-clock'};
+  const statusLabels={open:'Offen',closed:'Abgeschlossen','in-progress':'In Bearbeitung',werkstatt:'In der Werkstatt'};
+  const statusIcons={open:'ti-alert-circle',closed:'ti-circle-check','in-progress':'ti-clock',werkstatt:'ti-tools'};
   const dmgList=v.damages.length?v.damages.map(d=>`<div class="damage-item ${d.status}" data-did="${d.id}">
     <div class="damage-icon"><i class="ti ${statusIcons[d.status]||'ti-tools'}" aria-hidden="true"></i></div>
     <div style="flex:1">
