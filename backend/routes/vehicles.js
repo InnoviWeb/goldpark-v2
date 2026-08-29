@@ -93,7 +93,7 @@ router.post('/', requireAuth, async (req, res) => {
     service_date, service_interval, service_last_km,
     tuev_date, tires_date, tires_type,
     tire_size_fl, tire_size_fr, tire_size_rl, tire_size_rr,
-    detailing_date, leasing_km_rest,
+    detailing_date, leasing_km_rest, driver_id,
   } = req.body;
   const company_id = req.body.company_id || req.query.company_id;
 
@@ -109,8 +109,8 @@ router.post('/', requireAuth, async (req, res) => {
          service_date, service_interval, service_last_km,
          tuev_date, tires_date, tires_type,
          tire_size_fl, tire_size_fr, tire_size_rl, tire_size_rr,
-         detailing_date, leasing_km_rest)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+         detailing_date, leasing_km_rest, driver_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
        RETURNING *`,
       [
         company_id, make, model, plate, year || null, km || 0,
@@ -119,7 +119,7 @@ router.post('/', requireAuth, async (req, res) => {
         service_date || null, service_interval || 15000, service_last_km || 0,
         tuev_date || null, tires_date || null, tires_type || null,
         tire_size_fl || null, tire_size_fr || null, tire_size_rl || null, tire_size_rr || null,
-        detailing_date || null, leasing_km_rest || null,
+        detailing_date || null, leasing_km_rest || null, driver_id || null,
       ]
     );
     res.status(201).json(mapVehicle(result.rows[0]));
