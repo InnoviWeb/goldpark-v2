@@ -711,7 +711,7 @@ function isSlotBlocked(cid,datum,uhrzeit){return isDayBlocked(cid,datum)||state.
 function blockedSlotsForDay(cid,datum){return state.blockedSlots.filter(b=>b.cid===cid&&b.datum===datum).map(b=>b.uhrzeit);}
 
 // ===== HELPERS =====
-function daysUntil(ds){return Math.round((new Date(ds)-TODAY)/86400000);}
+function daysUntil(ds){if(!ds)return Infinity;return Math.round((new Date(ds)-TODAY)/86400000);}
 function statusClass(d){return d<0?'danger':d<=30?'warn':'ok';}
 function daysLabel(d){if(d<0)return Math.abs(d)+' Tage überfällig';if(d===0)return 'Heute fällig';return 'in '+d+' Tagen';}
 function isAdmin(){return currentRole==='admin';}
@@ -2630,19 +2630,19 @@ function renderVehicleDetail(){
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
           <div style="background:#F0F0F0;border:1px solid #DCDCDC;border-radius:5px;padding:7px 9px">
             <div style="font-size:9px;color:var(--text3);margin-bottom:3px">Vorne Links</div>
-            <div style="font-size:12px;font-weight:600;font-family:var(--font-mono);color:var(--text)">${v.tires.sizeFL||'—'}</div>
+            <div style="font-size:12px;font-weight:600;font-family:var(--font-mono);color:var(--text)">${(v.tireSizes&&v.tireSizes.fl)||'—'}</div>
           </div>
           <div style="background:#F0F0F0;border:1px solid #DCDCDC;border-radius:5px;padding:7px 9px">
             <div style="font-size:9px;color:var(--text3);margin-bottom:3px">Vorne Rechts</div>
-            <div style="font-size:12px;font-weight:600;font-family:var(--font-mono);color:var(--text)">${v.tires.sizeFR||'—'}</div>
+            <div style="font-size:12px;font-weight:600;font-family:var(--font-mono);color:var(--text)">${(v.tireSizes&&v.tireSizes.fr)||'—'}</div>
           </div>
           <div style="background:#F0F0F0;border:1px solid #DCDCDC;border-radius:5px;padding:7px 9px">
             <div style="font-size:9px;color:var(--text3);margin-bottom:3px">Hinten Links</div>
-            <div style="font-size:12px;font-weight:600;font-family:var(--font-mono);color:var(--text)">${v.tires.sizeRL||'—'}</div>
+            <div style="font-size:12px;font-weight:600;font-family:var(--font-mono);color:var(--text)">${(v.tireSizes&&v.tireSizes.rl)||'—'}</div>
           </div>
           <div style="background:#F0F0F0;border:1px solid #DCDCDC;border-radius:5px;padding:7px 9px">
             <div style="font-size:9px;color:var(--text3);margin-bottom:3px">Hinten Rechts</div>
-            <div style="font-size:12px;font-weight:600;font-family:var(--font-mono);color:var(--text)">${v.tires.sizeRR||'—'}</div>
+            <div style="font-size:12px;font-weight:600;font-family:var(--font-mono);color:var(--text)">${(v.tireSizes&&v.tireSizes.rr)||'—'}</div>
           </div>
         </div>
       </div>
@@ -2722,6 +2722,8 @@ function openModal(type,id=''){
   } else if(type==='editVehicle'){
     const v=state.vehicles.find(x=>x.id===id);
     const tOpt=t=>`<option value="${t}"${v.tires.type===t?' selected':''}>${t}</option>`;
+    const compDrivers=state.drivers.filter(d=>d.cid===v.cid);
+    const driverOpts=compDrivers.map(d=>`<option value="${d.id}"${v.fahrerId===d.id?' selected':''}>${d.name}</option>`).join('');
     html=`<div class="modal"><div class="modal-title">Fahrzeugdaten bearbeiten <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
       <div class="form-row"><div class="form-group"><label class="form-label">Hersteller *</label><input class="form-input" id="ve-make" value="${v.make}"></div><div class="form-group"><label class="form-label">Modell *</label><input class="form-input" id="ve-model" value="${v.model}"></div></div>
       <div class="form-row"><div class="form-group"><label class="form-label">Kennzeichen *</label><input class="form-input" id="ve-plate" value="${v.plate}"></div><div class="form-group"><label class="form-label">Baujahr</label><input class="form-input" id="ve-year" type="number" value="${v.year}"></div></div>
@@ -2731,6 +2733,7 @@ function openModal(type,id=''){
       <div class="form-row"><div class="form-group"><label class="form-label">Reifengröße VL</label><input class="form-input" id="ve-sizefl" placeholder="z.B. 235/65 R16C" value="${(v.tireSizes&&v.tireSizes.fl)||''}"></div><div class="form-group"><label class="form-label">Reifengröße VR</label><input class="form-input" id="ve-sizefr" placeholder="z.B. 235/65 R16C" value="${(v.tireSizes&&v.tireSizes.fr)||''}"></div></div>
       <div class="form-row"><div class="form-group"><label class="form-label">Reifengröße HL</label><input class="form-input" id="ve-sizerl" placeholder="z.B. 235/65 R16C" value="${(v.tireSizes&&v.tireSizes.rl)||''}"></div><div class="form-group"><label class="form-label">Reifengröße HR</label><input class="form-input" id="ve-sizerr" placeholder="z.B. 235/65 R16C" value="${(v.tireSizes&&v.tireSizes.rr)||''}"></div></div>
       <div class="form-group"><label class="form-label">Fahrgestellnummer (FIN)</label><input class="form-input" id="ve-vin" placeholder="z.B. WDB9066331S123456" value="${v.vin||''}" style="font-family:var(--font-mono)"></div>
+      <div class="form-group"><label class="form-label">Zugewiesener Fahrer</label><select class="form-input" id="ve-driver"><option value="">— Kein Fahrer —</option>${driverOpts}</select></div>
       <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" onclick="saveEditVehicle('${id}')"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button></div></div>`;
   } else if(type==='availability'){
     const v=state.vehicles.find(x=>x.id===id);
@@ -3108,9 +3111,10 @@ async function saveEditVehicle(vid){
     tire_size_fr:document.getElementById('ve-sizefr').value.trim(),
     tire_size_rl:document.getElementById('ve-sizerl').value.trim(),
     tire_size_rr:document.getElementById('ve-sizerr').value.trim(),
+    driver_id:document.getElementById('ve-driver').value||null,
     gruppe:v.gruppe||'Ohne Zuordnung'};
   const res=await api('/api/vehicles/'+vid+'?company_id='+v.cid,{method:'PUT',body:JSON.stringify({...v,...updates})});
-  if(res&&res.ok){Object.assign(v,updates);v.tireSizes={fl:updates.tire_size_fl,fr:updates.tire_size_fr,rl:updates.tire_size_rl,rr:updates.tire_size_rr};}
+  if(res&&res.ok){Object.assign(v,updates);v.tireSizes={fl:updates.tire_size_fl,fr:updates.tire_size_fr,rl:updates.tire_size_rl,rr:updates.tire_size_rr};v.fahrerId=updates.driver_id||null;}
   closeModal();renderMain();
 }
 async function saveDamage(vid,fromMap){
