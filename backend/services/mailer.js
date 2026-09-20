@@ -1,7 +1,7 @@
 const { Resend } = require('resend');
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const FROM = 'Goldpark Management <onboarding@resend.dev>';
+const FROM = 'Goldpark Management <noreply@goldpark-fuhrparkmanagement.de>';
 const ADMIN_EMAIL = 'info@goldpark-fuhrparkmanagement.de';
 
 async function sendWelcomeMail(kundeEmail, kundenName, firmaName) {
