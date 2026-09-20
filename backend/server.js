@@ -29,6 +29,7 @@ app.use('/api/angebote', require('./routes/angebote'));
 app.use('/api/leasing', require('./routes/leasing'));
 app.use('/api/blocked-slots', require('./routes/blockedSlots'));
 app.use('/api/drivers', require('./routes/drivers'));
+app.use('/api/cron', require('./routes/cron'));
 
 // --- Frontend statisch ausliefern ---
 const frontendPath = path.join(__dirname, '..', 'frontend');

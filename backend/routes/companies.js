@@ -118,6 +118,8 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
     if (wantsUser) {
       try {
         await createSupabaseUser(login_email, login_password, company.id);
+        const { sendWelcomeMail } = require('../services/mailer');
+        await sendWelcomeMail(login_email, login_email, company.name).catch(console.error);
       } catch(err) {
         // Firma trotzdem zurückgeben, Zugang konnte nicht angelegt werden
         if (err.code === 'EMAIL_TAKEN') {
@@ -142,7 +144,7 @@ router.post('/:id/user', requireAuth, requireAdmin, async (req, res) => {
   if (password.length < 8) return res.status(400).json({ error: 'Passwort muss mindestens 8 Zeichen haben' });
 
   try {
-    const companyCheck = await db.query('SELECT id FROM companies WHERE id = $1', [req.params.id]);
+    const companyCheck = await db.query('SELECT id, name FROM companies WHERE id = $1', [req.params.id]);
     if (!companyCheck.rows.length) return res.status(404).json({ error: 'Firma nicht gefunden' });
 
     // Prüfen ob User schon existiert
@@ -158,6 +160,8 @@ router.post('/:id/user', requireAuth, requireAdmin, async (req, res) => {
     }
 
     await createSupabaseUser(email, password, req.params.id);
+    const { sendWelcomeMail } = require('../services/mailer');
+    await sendWelcomeMail(email, email, companyCheck.rows[0].name).catch(console.error);
     res.status(201).json({ success: true, action: 'created' });
   } catch(err) {
     if (err.code === 'EMAIL_TAKEN') {

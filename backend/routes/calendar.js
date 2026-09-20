@@ -61,6 +61,11 @@ router.put('/:id', requireAuth, async (req, res) => {
        kunden_status || null, kunden_nachricht || null, alternativ_termin || null,
        req.params.id]
     );
+    if (kunden_status) {
+      const { sendTerminBenachrichtigung } = require('../services/mailer');
+      const comp = await db.query('SELECT name FROM companies WHERE id = $1', [existing.rows[0].company_id]);
+      await sendTerminBenachrichtigung(null, comp.rows[0]?.name, result.rows[0].date, kunden_status, kunden_nachricht).catch(console.error);
+    }
     res.json(result.rows[0]);
   } catch (err) {
     console.error(err);
