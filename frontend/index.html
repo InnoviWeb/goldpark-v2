@@ -711,9 +711,9 @@ function isSlotBlocked(cid,datum,uhrzeit){return isDayBlocked(cid,datum)||state.
 function blockedSlotsForDay(cid,datum){return state.blockedSlots.filter(b=>b.cid===cid&&b.datum===datum).map(b=>b.uhrzeit);}
 
 // ===== HELPERS =====
-function daysUntil(ds){if(!ds)return Infinity;return Math.round((new Date(ds)-TODAY)/86400000);}
-function statusClass(d){return d<0?'danger':d<=30?'warn':'ok';}
-function daysLabel(d){if(d<0)return Math.abs(d)+' Tage überfällig';if(d===0)return 'Heute fällig';return 'in '+d+' Tagen';}
+function daysUntil(ds){if(!ds)return null;const d=new Date(ds);if(isNaN(d.getTime()))return null;return Math.ceil((d-TODAY)/86400000);}
+function statusClass(d){if(d===null)return 'ok';return d<0?'danger':d<=30?'warn':'ok';}
+function daysLabel(d){if(d===null)return 'Kein Datum';if(d<0)return Math.abs(d)+' Tage überfällig';if(d===0)return 'Heute fällig';return 'in '+d+' Tagen';}
 function isAdmin(){return currentRole==='admin';}
 
 function getVehicleStatus(v){
@@ -1098,12 +1098,12 @@ function buildErinnerungenTileHTML(cid){
   state.vehicles.filter(v=>v.cid===cid).forEach(v=>{
     types.forEach(t=>{
       const d=daysUntil(v[t.key].date);
-      if(d>14&&d<=30) items.push({vid:v.id,cid:v.cid,text:`${v.make} ${v.model}`,sub:`${t.label} · ${v.plate}`,days:d});
+      if(d!==null&&d<=90) items.push({vid:v.id,cid:v.cid,text:`${v.make} ${v.model}`,sub:`${t.label} · ${v.plate}`,days:d});
     });
   });
   state.drivers.filter(d=>d.cid===cid&&d.nextCheck).forEach(d=>{
     const days=daysUntil(d.nextCheck);
-    if(days>14&&days<=30) items.push({cid,text:d.name,sub:'Führerscheinkontrolle fällig',days});
+    if(days!==null&&days<=90) items.push({cid,text:d.name,sub:'Führerscheinkontrolle fällig',days});
   });
   items.sort((a,b)=>a.days-b.days);
   if(!items.length) return `<div style="text-align:center;padding:16px 8px;color:#AAA;font-size:11px">Keine Erinnerungen</div>`;
@@ -2604,9 +2604,10 @@ function renderVehicleDetail(){
     ];
     const editBtn=isAdmin()?`<button class="btn btn-outline" style="align-self:flex-start;margin-top:4px" onclick="openModal('reminder','${v.id}')"><i class="ti ti-edit" aria-hidden="true"></i> Termine bearbeiten</button>`:'';
     content=`<div class="reminder-full">${items.map(item=>{
-      const days=daysUntil(item.date);const sc=statusClass(days);
+      const days=daysUntil(item.date);const sc=days===null?'ok':statusClass(days);
       const dCls=sc==='ok'?'days-ok':sc==='warn'?'days-warn':'days-danger';
-      return `<div class="reminder-card ${sc}"><div class="rc-left"><div class="rc-icon"><i class="ti ${item.icon}" aria-hidden="true"></i></div><div><div class="rc-title">${item.label}</div><div class="rc-date">${new Date(item.date).toLocaleDateString('de-DE')}${item.extra?' · '+item.extra:''}</div></div></div><span class="rc-days ${dCls}">${daysLabel(days)}</span></div>`;
+      const dateStr=item.date?new Date(item.date).toLocaleDateString('de-DE'):'Kein Datum';
+      return `<div class="reminder-card ${sc}"><div class="rc-left"><div class="rc-icon"><i class="ti ${item.icon}" aria-hidden="true"></i></div><div><div class="rc-title">${item.label}</div><div class="rc-date">${dateStr}${item.extra?' · '+item.extra:''}</div></div></div><span class="rc-days ${dCls}">${daysLabel(days)}</span></div>`;
     }).join('')}${editBtn}</div>`;
   } else if(state.activeTab==='damages'){
     content=renderDamageTab(v);
@@ -2918,7 +2919,15 @@ async function moveVehicleGroup(vid,gruppe){
   if(!v)return;
   v.gruppe=gruppe;
   renderVehicleSection();
-  await api('/api/vehicles/'+vid+'?company_id='+v.cid,{method:'PUT',body:JSON.stringify({...v,gruppe})});
+  await api('/api/vehicles/'+vid+'?company_id='+v.cid,{method:'PUT',body:JSON.stringify({
+    make:v.make,model:v.model,plate:v.plate,year:v.year,km:v.km,vin:v.vin,
+    besitzart:v.besitzart,fuel:v.fuel,verfuegbar:v.verfuegbar,nv_grund:v.nv_grund,
+    service_date:v.service.date,service_interval:v.service.interval,service_last_km:v.service.lastKm,
+    tuev_date:v.tuev.date,tires_date:v.tires.date,tires_type:v.tires.type,
+    tire_size_fl:v.tireSizes&&v.tireSizes.fl,tire_size_fr:v.tireSizes&&v.tireSizes.fr,
+    tire_size_rl:v.tireSizes&&v.tireSizes.rl,tire_size_rr:v.tireSizes&&v.tireSizes.rr,
+    detailing_date:v.detailing.date,leasing_km_rest:v.leasing_km_rest,gruppe,driver_id:v.fahrerId
+  })});
 }
 function addGroup(cid){
   const input=document.getElementById('new-group-name');
@@ -2996,13 +3005,22 @@ function toggleWechselfahrer(){
   const wrap=document.getElementById('da-driver-wrap');
   if(wrap)wrap.style.display=chk.checked?'none':'';
 }
-function saveDriverAssign(vid){
+async function saveDriverAssign(vid){
   const v=state.vehicles.find(x=>x.id===vid);
   if(!v)return;
   const isWechsel=document.getElementById('da-wechsel').checked;
   v.wechselfahrer=isWechsel;
   v.fahrerId=isWechsel?null:(document.getElementById('da-driver').value||null);
   closeModal();renderVehicleSection();
+  await api('/api/vehicles/'+vid+'?company_id='+v.cid,{method:'PUT',body:JSON.stringify({
+    make:v.make,model:v.model,plate:v.plate,year:v.year,km:v.km,vin:v.vin,
+    besitzart:v.besitzart,fuel:v.fuel,verfuegbar:v.verfuegbar,nv_grund:v.nv_grund,
+    service_date:v.service.date,service_interval:v.service.interval,service_last_km:v.service.lastKm,
+    tuev_date:v.tuev.date,tires_date:v.tires.date,tires_type:v.tires.type,
+    tire_size_fl:v.tireSizes&&v.tireSizes.fl,tire_size_fr:v.tireSizes&&v.tireSizes.fr,
+    tire_size_rl:v.tireSizes&&v.tireSizes.rl,tire_size_rr:v.tireSizes&&v.tireSizes.rr,
+    detailing_date:v.detailing.date,leasing_km_rest:v.leasing_km_rest,gruppe:v.gruppe||'Ohne Zuordnung',driver_id:v.fahrerId
+  })});
 }
 
 async function saveCompany(existingId=''){
@@ -3099,22 +3117,35 @@ async function saveEditVehicle(vid){
   const make=document.getElementById('ve-make').value.trim();const model=document.getElementById('ve-model').value.trim();const plate=document.getElementById('ve-plate').value.trim();
   if(!make||!model||!plate)return alert('Hersteller, Modell und Kennzeichen erforderlich');
   const besitzart=document.getElementById('ve-besitzart').value;
-  const updates={make,model,plate,
+  const tires_type=document.getElementById('ve-tires').value;
+  const driver_id=document.getElementById('ve-driver').value||null;
+  const tire_size_fl=document.getElementById('ve-sizefl').value.trim();
+  const tire_size_fr=document.getElementById('ve-sizefr').value.trim();
+  const tire_size_rl=document.getElementById('ve-sizerl').value.trim();
+  const tire_size_rr=document.getElementById('ve-sizerr').value.trim();
+  const body={
+    make,model,plate,
     year:parseInt(document.getElementById('ve-year').value)||v.year,
     km:parseInt(document.getElementById('ve-km').value)||v.km,
     vin:document.getElementById('ve-vin').value.trim(),
-    besitzart,
-    fuel:document.getElementById('ve-fuel').value,
-    leasingKmRest:besitzart==='Leasing'?parseInt(document.getElementById('ve-kmrest').value)||null:null,
-    tires:{...v.tires,type:document.getElementById('ve-tires').value},
-    tire_size_fl:document.getElementById('ve-sizefl').value.trim(),
-    tire_size_fr:document.getElementById('ve-sizefr').value.trim(),
-    tire_size_rl:document.getElementById('ve-sizerl').value.trim(),
-    tire_size_rr:document.getElementById('ve-sizerr').value.trim(),
-    driver_id:document.getElementById('ve-driver').value||null,
-    gruppe:v.gruppe||'Ohne Zuordnung'};
-  const res=await api('/api/vehicles/'+vid+'?company_id='+v.cid,{method:'PUT',body:JSON.stringify({...v,...updates})});
-  if(res&&res.ok){Object.assign(v,updates);v.tireSizes={fl:updates.tire_size_fl,fr:updates.tire_size_fr,rl:updates.tire_size_rl,rr:updates.tire_size_rr};v.fahrerId=updates.driver_id||null;}
+    besitzart,fuel:document.getElementById('ve-fuel').value,
+    verfuegbar:v.verfuegbar,nv_grund:v.nv_grund,
+    service_date:v.service.date,service_interval:v.service.interval,service_last_km:v.service.lastKm,
+    tuev_date:v.tuev.date,
+    tires_date:v.tires.date,tires_type,
+    tire_size_fl,tire_size_fr,tire_size_rl,tire_size_rr,
+    detailing_date:v.detailing.date,
+    leasing_km_rest:besitzart==='Leasing'?parseInt(document.getElementById('ve-kmrest').value)||null:null,
+    driver_id,gruppe:v.gruppe||'Ohne Zuordnung'};
+  const res=await api('/api/vehicles/'+vid+'?company_id='+v.cid,{method:'PUT',body:JSON.stringify(body)});
+  if(res&&res.ok){
+    v.make=body.make;v.model=body.model;v.plate=body.plate;v.year=body.year;v.km=body.km;
+    v.vin=body.vin;v.besitzart=body.besitzart;v.fuel=body.fuel;
+    v.tires={...v.tires,type:tires_type};
+    v.tireSizes={fl:tire_size_fl,fr:tire_size_fr,rl:tire_size_rl,rr:tire_size_rr};
+    v.fahrerId=driver_id||null;
+    v.leasing_km_rest=body.leasing_km_rest;
+  }
   closeModal();renderMain();
 }
 async function saveDamage(vid,fromMap){
