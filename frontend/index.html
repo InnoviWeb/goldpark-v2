@@ -694,6 +694,8 @@ async function loadAllData(role, cid) {
         if (lRes && lRes.ok) { const ld = await lRes.json(); state.leasings.push(...ld); }
       }));
       state.vehicles.push(...vehs);
+      const co=state.companies.find(c=>c.id===cidItem);
+      if(co){const gruppen=[...new Set(vehs.map(v=>v.gruppe||'Ohne Zuordnung').filter(g=>g!=='Ohne Zuordnung'))];gruppen.push('Ohne Zuordnung');co.groups=gruppen;}
     }
     if (invRes && invRes.ok) { const d = await invRes.json(); state.invoices.push(...d.map(r=>({...(r.data||{}),id:r.id,cid:r.company_id}))); }
     if (calRes && calRes.ok) { const d = await calRes.json(); state.calendar.push(...d.map(r=>({...r,cid:r.cid||r.company_id,vehicleId:r.vehicleId||r.vehicle_id,kundenStatus:r.kunden_status,kundenNachricht:r.kunden_nachricht,alternativTermin:r.alternativ_termin}))); }
@@ -1237,7 +1239,7 @@ function buildVehicleSection(vehicles,company){
     const collapsed=!!state.collapsedGroups[key];
     const cards=gVehicles.map(v=>{
       const s=getVehicleStatus(v);
-      const reminders=[{label:'Service',days:daysUntil(v.service.date)},{label:'TÜV',days:daysUntil(v.tuev.date)},{label:'Reifen',days:daysUntil(v.tires.date)}].filter(r=>r.days<=30);
+      const reminders=[{label:'Service',days:daysUntil(v.service.date)},{label:'TÜV',days:daysUntil(v.tuev.date)},{label:'Reifen',days:daysUntil(v.tires.date)}].filter(r=>r.days!==null&&r.days<=30);
       const dmg=v.damages.filter(d=>d.status==='in-progress'||d.status==='werkstatt');
       const isSel=state.selectedVehicle===v.id;
       const gOpts=groups.map(g=>`<option value="${g}"${(v.gruppe||'Ohne Zuordnung')===g?' selected':''}>${g}</option>`).join('');
@@ -1294,7 +1296,7 @@ function renderMain(){
 
   const adminActions = isAdmin() ? `
     <button class="btn btn-gold" onclick="openModal('vehicle','${company.id}')"><i class="ti ti-plus" aria-hidden="true"></i> Fahrzeug</button>
-    <button class="btn" style="background:#2C2C2C;color:#FFF;border:1px solid #555" onclick="openModal('editCompany','${company.id}')"><i class="ti ti-edit" aria-hidden="true"></i></button>
+    <button class="btn" style="background:#2C2C2C;color:#FFF;border:1px solid #555" onclick="openModal('editCompany','${company.id}')"><i class="ti ti-edit" aria-hidden="true"></i> Bearbeiten</button>
   ` : `<span class="readonly-badge"><i class="ti ti-eye" style="font-size:10px" aria-hidden="true"></i> Nur-Lesen</span>`;
 
   const hdr=`<div class="top-bar"><div><div class="page-title">${company.name}</div><div class="page-sub">${company.contact} · ${company.phone} · ${company.email}</div></div><div class="actions">${adminActions}</div></div>`;
@@ -2109,7 +2111,7 @@ function renderMasterCalendarView(){
           <div class="mcal-head-title"><i class="ti ti-calendar-month" aria-hidden="true"></i> Gesamtkalender</div>
           <div class="mcal-head-sub">Termine aller Firmen im Überblick</div>
         </div>
-        <button class="mcal-close" onclick="closeMasterCalendar()" title="Schließen" aria-label="Schließen"><i class="ti ti-x" aria-hidden="true"></i></button>
+        <button class="mcal-close" onclick="closeMasterCalendar()" title="Schließen" aria-label="Schließen">✕</button>
       </div>
       <div class="mcal-body">
         ${legend}
@@ -2695,7 +2697,7 @@ function openModal(type,id=''){
       <div class="form-row"><div class="form-group"><label class="form-label">E-Mail</label><input class="form-input" id="ec-login-email" type="email" placeholder="kunde@firma.de"></div><div class="form-group"><label class="form-label">Neues Passwort (min. 8 Zeichen)</label><input class="form-input" id="ec-login-pass" type="password" placeholder="••••••••"></div></div>
       <div id="ec-kz-msg" style="font-size:11px;min-height:16px;margin-bottom:4px"></div>
       <button class="btn btn-outline" onclick="saveKundenzugang('${id}')" style="margin-bottom:12px">Zugang anlegen / Passwort ändern</button>
-      <div class="modal-actions"><button class="btn" style="color:var(--red);border:0.5px solid rgba(224,85,85,.3);background:var(--red-bg)" onclick="deleteCompany('${id}')"><i class="ti ti-trash" aria-hidden="true"></i></button><button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" onclick="saveCompany('${id}')"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button></div></div>`;
+      <div class="modal-actions"><button class="btn" style="color:var(--red);border:0.5px solid rgba(224,85,85,.3);background:var(--red-bg)" onclick="deleteCompany('${id}')"><i class="ti ti-trash" aria-hidden="true"></i> Löschen</button><button class="btn btn-outline" onclick="closeModal()">Abbrechen</button><button class="btn btn-gold" onclick="saveCompany('${id}')"><i class="ti ti-check" aria-hidden="true"></i> Speichern</button></div></div>`;
   } else if(type==='vehicle'){
     html=`<div class="modal"><div class="modal-title">Fahrzeug hinzufügen <button class="modal-close" onclick="closeModal()"><i class="ti ti-x" aria-hidden="true"></i></button></div>
       <div class="form-row"><div class="form-group"><label class="form-label">Hersteller *</label><input class="form-input" id="v-make" placeholder="Mercedes-Benz"></div><div class="form-group"><label class="form-label">Modell *</label><input class="form-input" id="v-model" placeholder="Sprinter 316"></div></div>
