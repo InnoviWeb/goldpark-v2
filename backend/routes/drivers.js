@@ -9,7 +9,10 @@ const STATUS_TO_FE = { kontrolliert: 'checked', ausstehend: 'pending', ungueltig
 const STATUS_TO_DB = { checked: 'kontrolliert', pending: 'ausstehend', invalid: 'ungueltig' };
 
 function dateStr(d) {
-  return d ? d.toISOString().split('T')[0] : null;
+  if (!d) return null;
+  if (typeof d === 'string') return d.split('T')[0];
+  if (d instanceof Date) return d.toISOString().split('T')[0];
+  return null;
 }
 
 function mapDriver(row) {

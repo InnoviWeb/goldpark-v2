@@ -4,6 +4,13 @@ const { requireAuth, enforceCompanyAccess } = require('../middleware/auth');
 
 const router = express.Router();
 
+function dateStr(d) {
+  if (!d) return null;
+  if (typeof d === 'string') return d.split('T')[0];
+  if (d instanceof Date) return d.toISOString().split('T')[0];
+  return null;
+}
+
 // Hilfsfunktion: DB-Row in Frontend-Format umwandeln
 function mapVehicle(row) {
   return {
@@ -20,15 +27,15 @@ function mapVehicle(row) {
     verfuegbar: row.verfuegbar,
     nv_grund: row.nv_grund,
     service: {
-      date: row.service_date ? row.service_date.toISOString().split('T')[0] : null,
+      date: dateStr(row.service_date),
       interval: row.service_interval,
       lastKm: row.service_last_km,
     },
     tuev: {
-      date: row.tuev_date ? row.tuev_date.toISOString().split('T')[0] : null,
+      date: dateStr(row.tuev_date),
     },
     tires: {
-      date: row.tires_date ? row.tires_date.toISOString().split('T')[0] : null,
+      date: dateStr(row.tires_date),
       type: row.tires_type,
     },
     tireSizes: {
@@ -38,7 +45,7 @@ function mapVehicle(row) {
       rr: row.tire_size_rr,
     },
     detailing: {
-      date: row.detailing_date ? row.detailing_date.toISOString().split('T')[0] : null,
+      date: dateStr(row.detailing_date),
     },
     leasing_km_rest: row.leasing_km_rest,
     gruppe: row.gruppe || 'Ohne Zuordnung',
